@@ -331,3 +331,5 @@ dist_bhatt <- bhattacharyya.dist(mu0, mu1, sigma0, sigma1)
 dist_bhatt
 
 ## Distance within classes #### 
+
+test git
