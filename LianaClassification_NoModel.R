@@ -1,3 +1,10 @@
+# Abbreviations used #############################################
+
+# md: manual delineation (blob dataset)
+# dp: drone photos (crowns dataset)
+# poly: polygons (opposite to pixel analysis)
+# m : matrix
+
 # File initialization #############################################
 
 rm(list = ls())
@@ -6,8 +13,10 @@ rm(list = ls())
 library(tidyverse)
 library(sf)
 library(terra)
+library(stats)
 library(Rtsne)
 library(ggplot2)
+library(paletteer)
 library(uwot)
 library(FactoMineR)
 library(fpc)
@@ -17,7 +26,6 @@ setwd ("D:/DataCamille/")
 
 
 # Uploading data and cropping ##########################################
-#r = rast("E:/DataCamille/HSI/HSI_2016_raw/NOU_FL12_20160921_182748_PS01_IMG008_atm_slice_002_x2.hyspex")
 
 ## HSI mosaic ####
 r <- rast("HSI/mosaic_2016/nou_20160921_l1c_mosaic.bsq")
@@ -25,9 +33,10 @@ nlyr(r) #number of spectral bands
 
 ## Illu ####
 illu <- rast("HSI/mosaic_2016/nou_20160921_ilu_mosaic.bsq")
+#illu <- rast("HSI/mosaic_2023/mosaic/nou_20231025_l1c_mosaic.bsq")
 nlyr(illu)
-hist(illu, breaks = 100)
-plot(illu)
+#hist(illu, breaks = 100)
+#plot(illu)
 
 ## Manually delineated (MD) ####
 blob <- vect("Lianes/LianaOrNotLiana_55_45.shp")
@@ -70,6 +79,7 @@ label_liana_filt_050 <- mask(label_liana, illu_mask_050_crowns, maskvalues = c(F
 n_after <- global(!is.na(area_crowns_filt_050[[1]]), "sum")$sum
 n_after
 
+
 #For MD crowns ####
 illu_crop_blob <- crop(illu, area_blob)
 
@@ -80,25 +90,79 @@ label_blob_filt_050 <- mask(label_blob, illu_mask_050_blob, maskvalues = c(FALSE
 
 # tSNE ####################################################################################
 
+tsne_per_pixel <- function(area_filtered, label_filtered, illu_crop_area){
+  area_matrix <- as.matrix(area_filtered)
+  label_matrix <- as.matrix (label_filtered)[,1]
+  
+  na_per_band <- colSums(is.na(area_matrix))
+  good_bands <- na_per_band < nrow(area_matrix)
+  # sum(good_bands)
+  
+  valid_idx <- which(!is.na(label_matrix) & complete.cases(area_matrix[, good_bands]))
+  # length(valid_idx)
+  
+  area_valid <- area_matrix[valid_idx, good_bands]
+  labels_valid <- label_matrix[valid_idx]
+  # dim(crowns_050_valid)
+  # length(labels_valid)
+  
+  illu_matrix <- as.matrix(illu_crop_area)[, 1]
+  illu_valid <- illu_matrix[valid_idx]
+  
+  output_list <- list(
+    matrix = area_valid,
+    labels = labels_valid,
+    illu = illu_valid,
+    goodbands = good_bands)
+  
+  return(output_list)
+} 
+
+tsne_per_polygon <- function(area_filtered, area_vector, label_name, illu_raster){
+  
+  # Mean spectrum per polygon
+  poly_spectra <- extract(area_filtered, area_vector, fun = mean, na.rm = TRUE, ID = TRUE)
+  # poly_labels <- area_vector$label_name[poly_spectra$ID]
+  poly_labels <- values(area_vector)[[label_name]][poly_spectra$ID]
+  
+  # Create the matrix
+  poly_matrix <- as.matrix(poly_spectra[, -1])
+  
+  na_per_band_poly <- colSums(is.na(poly_matrix))
+  good_bands_poly <- na_per_band_poly < nrow(poly_matrix)
+  
+  poly_valid <- poly_matrix[, good_bands_poly]
+  
+  # Remove polygons full of NA
+  valid_poly_idx <- complete.cases(poly_valid)
+  
+  poly_valid <- poly_valid[valid_poly_idx, ]
+  label_poly_valid <- poly_labels[valid_poly_idx]
+  dim(poly_valid)
+  length(label_poly_valid)
+  
+  # poly_illu <- extract(illu_raster, area_vector, fun = mean, na.rm = TRUE, ID = TRUE)
+  # illu_col_name <- names(poly_illu)[2]  
+  # illu_poly_valid <- poly_illu[[illu_col_name]][valid_poly_idx]
+  
+  output_list <- list(
+    matrix = poly_valid,
+    labels = label_poly_valid,
+    # illu = illu_poly_valid,
+    goodbands = good_bands_poly
+    )
+  
+  return(output_list)
+}
+
+
 ## For DP per pixel #################################################################
 
-### Creation of the correct matrix ####
+DP_per_pixel <- tsne_per_pixel(area_crowns_filt_050, label_liana_filt_050, illu_crop_crowns)
 
-crowns_050_m  <- as.matrix(area_crowns_filt_050)
-liana_050_m <- as.matrix(label_liana_filt_050)[, 1]
-
-na_per_band <- colSums(is.na(crowns_050_m)) # to apply before in the next version
-good_bands <- na_per_band < nrow(crowns_050_m)
-sum(good_bands)
-
-valid_idx <- which(!is.na(liana_050_m) & stats::complete.cases(crowns_050_m[, good_bands]))
-length(valid_idx)
-
-crowns_050_valid <- crowns_050_m[valid_idx, good_bands]
-labels_valid <- liana_050_m[valid_idx]
-
-dim(crowns_050_valid)
-length(labels_valid)
+crowns_050_valid <- DP_per_pixel$matrix
+illu_crowns_valid <- DP_per_pixel$illu
+label_crowns_valid <- DP_per_pixel$labels
 
 ### tSNE ####
 
@@ -108,32 +172,32 @@ tsne_out <- Rtsne(seed=2, crowns_050_valid)
 tsne_plot <- data.frame(
   x = tsne_out$Y[,1],
   y = tsne_out$Y[,2],
-  LianaFullCrown = as.factor(labels_valid)
+  LianaFullCrown = as.factor(label_crowns_valid)
 )
+
+tsne_plot$illu <- illu_crowns_valid
 
 ggplot(tsne_plot, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
+  scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
+                     labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "tSNE of the HSI values of the drone photos dataset" )
+
+
+ggplot(tsne_plot, aes(x = x, y = y, color = illu)) +
+  geom_point() +
+  scale_color_viridis_c(name = "Illumination") +
+  labs(title = "tSNE of the HSI values of the DP dataset colored by illumination")
 
 ## tSNE for MD per pixel ###########################################################
 
 ### Creation of the correct matrix ####
 
-blob_050_m  <- as.matrix(area_blob_filt_050)
-type_050_m <- as.matrix(label_blob_filt_050)[, 1]
+MD_per_pixel <- tsne_per_pixel(area_blob_filt_050, label_blob_filt_050, illu_crop_blob)
 
-na_per_band_blob <- colSums(is.na(blob_050_m)) # to apply before in the next version
-good_bands_blob <- na_per_band_blob < nrow(blob_050_m)
-sum(good_bands_blob)
-
-valid_idx_blob <- which(!is.na(type_050_m) & stats::complete.cases(blob_050_m[, good_bands_blob]))
-length(valid_idx_blob)
-
-blob_050_valid <- blob_050_m[valid_idx_blob, good_bands_blob]
-labels_valid_blob <- type_050_m[valid_idx_blob]
-
-dim(blob_050_valid)
-length(labels_valid_blob)
+blob_050_valid <- MD_per_pixel$matrix
+illu_blob_valid <- MD_per_pixel$illu
+label_blob_valid <- MD_per_pixel$label
 
 ### tSNE ####
 
@@ -143,8 +207,11 @@ tsne_out_blob <- Rtsne(seed=2, blob_050_valid)
 tsne_plot_blob <- data.frame(
   x = tsne_out_blob$Y[,1],
   y = tsne_out_blob$Y[,2],
-  Type = as.factor(labels_valid_blob)
+  Type = as.factor(label_blob_valid)
 )
+
+tsne_plot_blob$illu <- illu_blob_valid
+
 
 ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
@@ -155,73 +222,65 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
   )+
   labs(title= "tSNE of the HSI values of the MD dataset" )
 
+ggplot(tsne_plot_blob, aes(x = x, y = y, color = illu)) +
+  geom_point() +
+  scale_color_viridis_c(name = "Illumination") +
+  labs(title = "tSNE of the HSI values of the MD dataset colored by illumination")
+
 
 ## For DP per polygon (crown) ################################################################
 
-# Mean spectrum per polygon
-crowns_poly_spectra <- extract(area_crowns_filt_050, crowns, fun = mean, na.rm = TRUE, ID = TRUE)
-crowns_poly_labels <- crowns$LianaFullC[crowns_poly_spectra$ID]
+DP_per_poly <- tsne_per_polygon(area_crowns_filt_050, crowns, "LianaFullC") #, illu)
 
-# Create the matrix
-crowns_poly_matrix <- as.matrix(crowns_poly_spectra[, -1])
+crowns_poly_valid <- DP_per_poly$matrix
+# illu_crowns_poly_valid <- DP_per_pixel$illu
+label_crowns_poly_valid <- DP_per_poly$label
 
-na_per_band_crowns_poly <- colSums(is.na(crowns_poly_matrix))
-good_bands_crowns_poly <- na_per_band_crowns_poly < nrow(crowns_poly_matrix)
+### tSNE
+tsne_out_crowns_poly <- Rtsne(crowns_poly_valid, perplexity = 10, seed = 2)  #low perplexity due to few polygons
 
-crowns_poly_matrix_valid <- crowns_poly_matrix[, good_bands_crowns_poly]
-
-# Remove polygons full of NA
-valid_crowns_poly_idx <- stats::complete.cases(crowns_poly_matrix_valid)
-crowns_poly_matrix_valid <- crowns_poly_matrix_valid[valid_crowns_poly_idx, ]
-crowns_poly_labels_valid <- crowns_poly_labels[valid_crowns_poly_idx]
-
-dim(crowns_poly_matrix_valid)
-length(crowns_poly_labels_valid)
-
-tsne_out_crowns_poly <- Rtsne(crowns_poly_matrix_valid, perplexity = 10, seed = 2)  #low perplexity due to few polygons
-
+### tSNE plot
 tsne_plot_crowns_poly <- data.frame(
   x = tsne_out_crowns_poly$Y[,1],
   y = tsne_out_crowns_poly$Y[,2],
-  LianaFullCrown = as.factor(crowns_poly_labels_valid)
+  LianaFullCrown = as.factor(label_crowns_poly_valid)
 )
+
+# tsne_plot_crowns_poly$illu <- illu_crowns_poly_valid # /!\ illu_poly_valid_crowns VIDE !!!!
 
 ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+ #(size = 3)
-  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset" )
+  scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
+  # scale_color_viridis_d(option="turbo")+
+  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset" )
+
+# ggplot(tsne_plot_crowns_poly, aes(x = x, y = y, color = illu)) +
+#   geom_point() +
+#   scale_color_viridis_c(name = "Illumination") +
+#   labs(title = "tSNE of of the mean spectrum per polygon of the MD dataset colored by illumination")
+
 
 
 ## For MD per polygon ###################################################################
 
-# Mean spectrum per polygon
-poly_spectra <- extract(area_blob_filt_050, blob, fun = mean, na.rm = TRUE, ID = TRUE)
-poly_labels <- blob$Type[poly_spectra$ID]
+MD_per_poly <- tsne_per_polygon(area_blob_filt_050, blob, "Type")
 
-# Create the matrix
-poly_matrix <- as.matrix(poly_spectra[, -1])
+blob_poly_valid <- MD_per_poly$matrix
+#illu_blob_poly_valid <- MD_per_pixel$illu
+label_blob_poly_valid <- MD_per_poly$label
 
-na_per_band_poly <- colSums(is.na(poly_matrix))
-good_bands_poly <- na_per_band_poly < nrow(poly_matrix)
+# illu_poly_blob <- extract(illu, blob, fun = mean, na.rm = TRUE, ID = TRUE)
+# illu_poly_valid_blob<- illu_poly_blob$illu[valid_poly_idx] # /!\ illu_poly_valid_crowns VIDE !!!!
 
-poly_matrix_valid <- poly_matrix[, good_bands_poly]
+tsne_out_blob_poly <- Rtsne(blob_poly_valid, perplexity = 10, seed = 2)  #low perplexity due to few polygons
 
-# Remove polygons full of NA
-valid_poly_idx <- stats::complete.cases(poly_matrix_valid)
-poly_matrix_valid <- poly_matrix_valid[valid_poly_idx, ]
-poly_labels_valid <- poly_labels[valid_poly_idx]
-
-dim(poly_matrix_valid)
-length(poly_labels_valid)
-
-tsne_out_poly <- Rtsne(poly_matrix_valid, perplexity = 10, seed = 2)  #low perplexity due to few polygons
-
-tsne_plot_poly <- data.frame(
-  x = tsne_out_poly$Y[,1],
-  y = tsne_out_poly$Y[,2],
-  Type = as.factor(poly_labels_valid)
+tsne_plot_blob_poly <- data.frame(
+  x = tsne_out_blob_poly$Y[,1],
+  y = tsne_out_blob_poly$Y[,2],
+  Type = as.factor(label_blob_poly_valid)
 )
 
-ggplot(tsne_plot_poly, aes(x = x, y = y, color = Type)) +
+ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() + #(size = 3)
   scale_color_manual(
     name = "Presence of liana",
@@ -240,12 +299,23 @@ umap_out_crowns <- umap2( seed = 2, crowns_050_valid)
 umap_plot_crowns <- data.frame(
   x = umap_out_crowns[,1],
   y = umap_out_crowns[,2],
-  LianaFullCrown = as.factor(labels_valid)
+  LianaFullCrown = as.factor(label_crowns_valid)
 )
 
+umap_plot_crowns$illu <- illu_crowns_valid
+  
+  
 ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
+  scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
+                     labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
+  # scale_color_viridis_d(option="turbo")+
   labs(title= "UMAP of the HSI values of the DP dataset" )
+
+ggplot(umap_plot_crowns, aes(x = x, y = y, color = illu)) +
+  geom_point() +
+  scale_color_viridis_c(name = "Illumination") +
+  labs(title = "UMAP of the HSI values of the DP dataset colored by illumination")
 
 #For MD per pixel
 umap_out_blob <- umap2( seed = 2, blob_050_valid)
@@ -253,8 +323,10 @@ umap_out_blob <- umap2( seed = 2, blob_050_valid)
 umap_plot_blob <- data.frame(
   x = umap_out_blob[,1],
   y = umap_out_blob[,2],
-  Type = as.factor(labels_valid_blob)
+  Type = as.factor(label_blob_valid)
 )
+
+umap_plot_blob$illu <- illu_blob_valid
 
 ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
@@ -265,26 +337,32 @@ ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
   )+
   labs(title= "UMAP of the HSI values of the MD dataset" )
 
+ggplot(umap_plot_blob, aes(x = x, y = y, color = illu)) +
+  geom_point() +
+  scale_color_viridis_c(name = "Illumination") +
+  labs(title = "UMAP of the HSI values of the MD dataset colored by illumination")
+
 #For DP per polygon
-umap_out_crowns_poly <- umap2( seed = 2, crowns_poly_matrix_valid)
+umap_out_crowns_poly <- umap2( seed = 2, crowns_poly_valid)
 
 umap_plot_crowns_poly <- data.frame(
   x = umap_out_crowns_poly[,1],
   y = umap_out_crowns_poly[,2],
-  LianaFullCrown = as.factor(crowns_poly_labels_valid)
+  LianaFullCrown = as.factor(label_crowns_poly_valid)
 )
 
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
+  scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
   labs(title= "UMAP of the mean HSI value per polygon of the DP dataset" )
 
 #For MD per polygon
-umap_out_poly <- umap2( seed = 2, poly_matrix_valid)
+umap_out_poly <- umap2( seed = 2, blob_poly_valid)
 
 umap_plot_poly <- data.frame(
   x = umap_out_poly[,1],
   y = umap_out_poly[,2],
-  Type = as.factor(poly_labels_valid)
+  Type = as.factor(label_blob_poly_valid)
 )
 
 ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
@@ -300,36 +378,118 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
 
 ##Distance between classes####
 
-### With DP dataset ####
+bhatt_dist_btwn <- function (matrix, matrix_label, label1, label2){
+  
+  #Reduce dimensionality
+  res_pca <- PCA(matrix, scale.unit = TRUE, graph = FALSE)
+  cum_var <- res_pca$eig[, "cumulative percentage of variance"]
+  n_components <- which(cum_var >= 85)[1]
+  
+  matrix_reduced <- res_pca$ind$coord[, 1:n_components]
+  
+  #Separate groups
+  group0 <- matrix_reduced[matrix_label == label1, ]
+  group1 <- matrix_reduced[matrix_label == label2, ]
+  
+  # Calculate mean vectors
+  mu0 <- colMeans(group0)
+  mu1 <- colMeans(group1)
+  
+  # Calculate covariance matrix
+  sigma0 <- cov(group0)
+  sigma1 <- cov(group1)
+  
+  dist_bhatt <- bhattacharyya.dist(mu0, mu1, sigma0, sigma1)
+  
+  output <- list(
+    mean0 = mu0,
+    mean1 = mu1,
+    bhatt = dist_bhatt
+  )
+  
+  return(output) 
+}
 
+### With DP dataset ####
+separability_dp_within <- bhatt_dist_btwn(crowns_poly_valid, label_crowns_poly_valid, "CR0", "CR3")
+
+bhatt_dist_dp_LianaVSTrees <- separability_dp_within$bhatt
+bhatt_dist_dp_LianaVSTrees
 
 
 ### With MD dataset ####
+separability_md_within <- bhatt_dist_btwn(blob_poly_valid, label_blob_poly_valid, 0, 1)
 
-#Reduce dimensionality
-res_pca <- PCA(poly_matrix_valid, scale.unit = TRUE, graph = FALSE)
-
-res_pca$eig[, "cumulative percentage of variance"]
-
-n_components <- 9  # ajustez selon le seuil choisi
-poly_matrix_reduced <- res_pca$ind$coord[, 1:n_components]
-
-#Separate groups
-group0 <- poly_matrix_reduced[poly_labels_valid == 0, ]
-group1 <- poly_matrix_reduced[poly_labels_valid == 1, ]
-
-
-# Calculate mean vectors
-mu0 <- colMeans(group0)
-mu1 <- colMeans(group1)
-
-# Calculate covariance matrix
-sigma0 <- cov(group0)
-sigma1 <- cov(group1)
-
-dist_bhatt <- bhattacharyya.dist(mu0, mu1, sigma0, sigma1)
-dist_bhatt
+bhatt_dist_dp_LianaVSTrees <- separability_md_within$bhatt
+bhatt_dist_dp_LianaVSTrees
 
 ## Distance within classes #### 
 
-test git
+bhatt_dist_within <- function(shapefile, mask_illu, matrix_area_filtered, good_bands){
+
+  shapefile$poly_ID <- seq_len(nrow(shapefile))
+
+  label_poly_ID <- rasterize(shapefile, area, field = "poly_ID")
+  label_poly_ID_filt <- mask (label_poly_ID, mask_illu, maskvalues = c(FALSE, NA))
+  label_poly_ID_m <- as.matrix(label_poly_ID_filt)[, 1]
+
+  valid_idx_poly_ID <- which(!is.na(label_poly_ID_m) & complete.cases(matrix_area_filtered[, good_bands]))
+
+  pixel_matrix <- matrix_area_filtered[valid_idx_poly_ID, good_bands]
+  pixel_ID <- label_poly_ID_m[valid_idx_poly_ID]
+
+  res_pca <- PCA(pixel_matrix, scale.unit = TRUE, graph = FALSE)
+
+  pca <- FactoMineR::PCA(pixel_matrix, scale.unit = TRUE, graph = FALSE)
+  cum_var <- pca$eig[, "cumulative percentage of variance"]
+  n_components <- which(cum_var >= 85)[1]
+
+  pixel_reduced <- res_pca$ind$coord[, 1:n_components]
+}
+
+## Mean spectrum comparison ###################################################
+# noliana_dp =crowns_050_valid[label_crowns_valid == "CR0", ]
+# 
+# 
+# mean_noliana_dp = separability_dp_within$mean0
+# mean_liana_dp = separability_dp_within$mean1
+# 
+# mean_noliana_md = separability_md_within$mean0
+# mean_liana_md = separability_md_within$mean1
+
+# pixel_data_crowns <- extract(area_crowns_filt_050, crowns, ID = TRUE)
+
+mean_spectrum_by_group <- function(matrix_valid, labels_valid, wavelengths, dataset_name) {
+  groups <- unique(labels_valid)
+  
+  spectra_list <- lapply(groups, function(g) {
+    mean_spec <- colMeans(matrix_valid[labels_valid == g, , drop = FALSE], na.rm = TRUE)
+    data.frame(
+      wavelength = wavelengths,
+      reflectance = mean_spec,
+      group = paste0(dataset_name, "_", g)
+    )
+  })
+  
+  do.call(rbind, spectra_list)
+}
+
+wavelengths_blob <- as.numeric(names(area_blob_filt_050))[MD_per_poly$goodbands]
+wavelengths_crowns <- as.numeric(names(area_crowns_filt_050))[DP_per_poly$goodbands]
+
+spec_crowns <- mean_spectrum_by_group(crowns_poly_valid, label_crowns_poly_valid, wavelengths_crowns, "DP")
+spec_blob   <- mean_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, wavelengths_blob, "MD")
+
+all_spectra <- rbind(spec_crowns, spec_blob)
+
+# Garder uniquement CR0, CR3 (DP) et 0, 1 (MD)
+selected <- subset(all_spectra, group %in% c("DP_0", "DP_3", "MD_0", "MD_1"))
+
+ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
+  geom_line(linewidth = 1) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Mean reflectance",
+    title = "Spectres moyens par groupe (DP et MD)",
+    color = "Groupe"
+  )
