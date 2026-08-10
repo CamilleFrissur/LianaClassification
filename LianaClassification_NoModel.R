@@ -56,37 +56,43 @@ crowns <- project(crowns, crs(r))
 area_crowns <- crop(r, crowns, mask=TRUE)
 #plot(area_crowns[[53]]) 
 
-label_liana <- rasterize(crowns, area_crowns, field = "LianaFullC")
+label_crowns <- rasterize(crowns, area_crowns, field = "LianaFullC")
 
 
 # Removing pixel based on illu ###########################################
 
-#For DP crowns ####
+med_illu <- global(illu[[1]], fun = median, na.rm = TRUE)$global
+perc90_illu <- global(illu[[1]], fun = quantile, probs = 0.9, na.rm = TRUE)$X90.
 
-illu_crop_crowns <- crop(illu, area_crowns)
+filter_by_illu <- function(illu_raster, area, label, threshold){
+  illu_crop_area <- crop(illu_raster, area)
+  n_before <- global(!is.na(area[[1]]), "sum")$sum
+  
+  illu_mask <- illu_crop_area > threshold
+  
+  area_filtered <- mask(area, illu_mask, maskvalues = c(FALSE, NA))
+  label_filtered <- mask(label, illu_mask, maskvalues = c(FALSE, NA))
+  
+  n_after <- global(!is.na(area_filtered[[1]]), "sum")$sum
+  
+  per_n_out <- n_after/n_before
+  
+  output_list <- list(
+    area_crop = illu_crop_area,
+    area_filt = area_filtered,
+    label_filt = label_filtered,
+    threshold_qual = per_n_out)
+  
+  return(output_list)
+}
 
-#Number of valid pixels before taking illu into acount
-n_before <- global(!is.na(area_crowns[[1]]), "sum")$sum
-n_before
+##For DP crowns ####
 
-# Using a mask keep all pixels with illu superior to the threshold
-illu_mask_050_crowns <- illu_crop_crowns > 0.05 #change the threshold based on QGIS visualization and classification results
+illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
 
-area_crowns_filt_050 <- mask(area_crowns, illu_mask_050_crowns, maskvalues = c(FALSE, NA))
-label_liana_filt_050 <- mask(label_liana, illu_mask_050_crowns, maskvalues = c(FALSE, NA))
+##For MD crowns ####
 
-#Number of valid pixels after taking illu into acount
-n_after <- global(!is.na(area_crowns_filt_050[[1]]), "sum")$sum
-n_after
-
-
-#For MD crowns ####
-illu_crop_blob <- crop(illu, area_blob)
-
-illu_mask_050_blob <- illu_crop_blob > 0.05 #change the threshold based on QGIS visualization and classification results
-
-area_blob_filt_050 <- mask(area_blob, illu_mask_050_blob, maskvalues = c(FALSE, NA))
-label_blob_filt_050 <- mask(label_blob, illu_mask_050_blob, maskvalues = c(FALSE, NA))
+illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
 
 # tSNE ####################################################################################
 
@@ -103,7 +109,7 @@ tsne_per_pixel <- function(area_filtered, label_filtered, illu_crop_area){
   
   area_valid <- area_matrix[valid_idx, good_bands]
   labels_valid <- label_matrix[valid_idx]
-  # dim(crowns_050_valid)
+  # dim(crowns_filt_valid)
   # length(labels_valid)
   
   illu_matrix <- as.matrix(illu_crop_area)[, 1]
@@ -158,15 +164,15 @@ tsne_per_polygon <- function(area_filtered, area_vector, label_name, illu_raster
 
 ## For DP per pixel #################################################################
 
-DP_per_pixel <- tsne_per_pixel(area_crowns_filt_050, label_liana_filt_050, illu_crop_crowns)
+DP_per_pixel <- tsne_per_pixel(illu_crowns_out$area_filt, illu_crowns_out$label_filt, illu_crowns_out$area_crop)
 
-crowns_050_valid <- DP_per_pixel$matrix
+crowns_filt_valid <- DP_per_pixel$matrix
 illu_crowns_valid <- DP_per_pixel$illu
 label_crowns_valid <- DP_per_pixel$labels
 
 ### tSNE ####
 
-tsne_out <- Rtsne(seed=2, crowns_050_valid)
+tsne_out <- Rtsne(seed=2, crowns_filt_valid)
 
 ### tSNE plot ####
 tsne_plot <- data.frame(
@@ -193,15 +199,15 @@ ggplot(tsne_plot, aes(x = x, y = y, color = illu)) +
 
 ### Creation of the correct matrix ####
 
-MD_per_pixel <- tsne_per_pixel(area_blob_filt_050, label_blob_filt_050, illu_crop_blob)
+MD_per_pixel <- tsne_per_pixel(illu_blob_out$area_filt, illu_blob_out$label_filt, illu_blob_out$area_crop)
 
-blob_050_valid <- MD_per_pixel$matrix
+blob_filt_valid <- MD_per_pixel$matrix
 illu_blob_valid <- MD_per_pixel$illu
 label_blob_valid <- MD_per_pixel$label
 
 ### tSNE ####
 
-tsne_out_blob <- Rtsne(seed=2, blob_050_valid)
+tsne_out_blob <- Rtsne(seed=2, blob_filt_valid)
 
 ### tSNE plot ####
 tsne_plot_blob <- data.frame(
@@ -230,7 +236,7 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = illu)) +
 
 ## For DP per polygon (crown) ################################################################
 
-DP_per_poly <- tsne_per_polygon(area_crowns_filt_050, crowns, "LianaFullC") #, illu)
+DP_per_poly <- tsne_per_polygon(illu_crowns_out$area_filt, crowns, "LianaFullC") #, illu)
 
 crowns_poly_valid <- DP_per_poly$matrix
 # illu_crowns_poly_valid <- DP_per_pixel$illu
@@ -263,7 +269,7 @@ ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
 
 ## For MD per polygon ###################################################################
 
-MD_per_poly <- tsne_per_polygon(area_blob_filt_050, blob, "Type")
+MD_per_poly <- tsne_per_polygon(illu_blob_out$area_filt, blob, "Type")
 
 blob_poly_valid <- MD_per_poly$matrix
 #illu_blob_poly_valid <- MD_per_pixel$illu
@@ -294,7 +300,7 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
 
 #For DP per pixel
 
-umap_out_crowns <- umap2( seed = 2, crowns_050_valid)
+umap_out_crowns <- umap2( seed = 2, crowns_filt_valid)
 
 umap_plot_crowns <- data.frame(
   x = umap_out_crowns[,1],
@@ -318,7 +324,7 @@ ggplot(umap_plot_crowns, aes(x = x, y = y, color = illu)) +
   labs(title = "UMAP of the HSI values of the DP dataset colored by illumination")
 
 #For MD per pixel
-umap_out_blob <- umap2( seed = 2, blob_050_valid)
+umap_out_blob <- umap2( seed = 2, blob_filt_valid)
 
 umap_plot_blob <- data.frame(
   x = umap_out_blob[,1],
@@ -425,39 +431,29 @@ bhatt_dist_dp_LianaVSTrees
 
 ## Distance within classes #### 
 
-bhatt_dist_within <- function(shapefile, mask_illu, matrix_area_filtered, good_bands){
-
-  shapefile$poly_ID <- seq_len(nrow(shapefile))
-
-  label_poly_ID <- rasterize(shapefile, area, field = "poly_ID")
-  label_poly_ID_filt <- mask (label_poly_ID, mask_illu, maskvalues = c(FALSE, NA))
-  label_poly_ID_m <- as.matrix(label_poly_ID_filt)[, 1]
-
-  valid_idx_poly_ID <- which(!is.na(label_poly_ID_m) & complete.cases(matrix_area_filtered[, good_bands]))
-
-  pixel_matrix <- matrix_area_filtered[valid_idx_poly_ID, good_bands]
-  pixel_ID <- label_poly_ID_m[valid_idx_poly_ID]
-
-  res_pca <- PCA(pixel_matrix, scale.unit = TRUE, graph = FALSE)
-
-  pca <- FactoMineR::PCA(pixel_matrix, scale.unit = TRUE, graph = FALSE)
-  cum_var <- pca$eig[, "cumulative percentage of variance"]
-  n_components <- which(cum_var >= 85)[1]
-
-  pixel_reduced <- res_pca$ind$coord[, 1:n_components]
-}
+# bhatt_dist_within <- function(shapefile, mask_illu, matrix_area_filtered, good_bands){
+# 
+#   shapefile$poly_ID <- seq_len(nrow(shapefile))
+# 
+#   label_poly_ID <- rasterize(shapefile, area, field = "poly_ID")
+#   label_poly_ID_filt <- mask (label_poly_ID, mask_illu, maskvalues = c(FALSE, NA))
+#   label_poly_ID_m <- as.matrix(label_poly_ID_filt)[, 1]
+# 
+#   valid_idx_poly_ID <- which(!is.na(label_poly_ID_m) & complete.cases(matrix_area_filtered[, good_bands]))
+# 
+#   pixel_matrix <- matrix_area_filtered[valid_idx_poly_ID, good_bands]
+#   pixel_ID <- label_poly_ID_m[valid_idx_poly_ID]
+# 
+#   res_pca <- PCA(pixel_matrix, scale.unit = TRUE, graph = FALSE)
+# 
+#   pca <- FactoMineR::PCA(pixel_matrix, scale.unit = TRUE, graph = FALSE)
+#   cum_var <- pca$eig[, "cumulative percentage of variance"]
+#   n_components <- which(cum_var >= 85)[1]
+# 
+#   pixel_reduced <- res_pca$ind$coord[, 1:n_components]
+# }
 
 ## Mean spectrum comparison ###################################################
-# noliana_dp =crowns_050_valid[label_crowns_valid == "CR0", ]
-# 
-# 
-# mean_noliana_dp = separability_dp_within$mean0
-# mean_liana_dp = separability_dp_within$mean1
-# 
-# mean_noliana_md = separability_md_within$mean0
-# mean_liana_md = separability_md_within$mean1
-
-# pixel_data_crowns <- extract(area_crowns_filt_050, crowns, ID = TRUE)
 
 mean_spectrum_by_group <- function(matrix_valid, labels_valid, wavelengths, dataset_name) {
   groups <- unique(labels_valid)
@@ -474,22 +470,29 @@ mean_spectrum_by_group <- function(matrix_valid, labels_valid, wavelengths, data
   do.call(rbind, spectra_list)
 }
 
-wavelengths_blob <- as.numeric(names(area_blob_filt_050))[MD_per_poly$goodbands]
-wavelengths_crowns <- as.numeric(names(area_crowns_filt_050))[DP_per_poly$goodbands]
+wavelengths_blob <- as.numeric(names(illu_blob_out$area_filt))[MD_per_poly$goodbands]
+wavelengths_crowns <- as.numeric(names(illu_crowns_out$area_filt))[DP_per_poly$goodbands]
 
 spec_crowns <- mean_spectrum_by_group(crowns_poly_valid, label_crowns_poly_valid, wavelengths_crowns, "DP")
 spec_blob   <- mean_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, wavelengths_blob, "MD")
 
 all_spectra <- rbind(spec_crowns, spec_blob)
 
-# Garder uniquement CR0, CR3 (DP) et 0, 1 (MD)
-selected <- subset(all_spectra, group %in% c("DP_0", "DP_3", "MD_0", "MD_1"))
+
+selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1"))
+
+label_config <- data.frame(
+  group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
+  display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
+  color = c("yellowgreen", "darkorange1", "purple4", "deeppink3", "cyan3", "pink")
+)
 
 ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
   geom_line(linewidth = 1) +
-  labs(
-    x = "Wavelength (nm)",
-    y = "Mean reflectance",
-    title = "Spectres moyens par groupe (DP et MD)",
-    color = "Groupe"
-  )
+  labs(x = "Wavelength (nm)", y = "Mean reflectance", 
+       title = "Mean spectrum by dataset group (DP et MD)", color = "Type") +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+    )
+
