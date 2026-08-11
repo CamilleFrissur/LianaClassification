@@ -463,9 +463,12 @@ separability_md_within$shapiro_group0<0.05
 separability_md_within$shapiro_group1
 separability_md_within$shapiro_group1<0.05
 
-bhatt_dist_dp_LianaVSTrees <- separability_md_within$bhatt
-bhatt_dist_dp_LianaVSTrees
+bhatt_dist_md_LianaVSTrees <- separability_md_within$dist_bhatt
+bhatt_dist_md_LianaVSTrees
 
+bhatt_coeff_md_LianaVSTrees <- separability_md_within$coeff_bhatt
+bhatt_coeff_md_LianaVSTrees
+## Distance within classes ####
 
 bhatt_dist_within <- function(area_filtered, area_vector, label_name, target_label){
   
@@ -549,6 +552,8 @@ bhatt_within_dp_CR0$mean_dist
 bhatt_within_dp_CR0$mean_coeff
 sum(is.na(bhatt_within_dp_CR0$distances$dist_bhatt))   # number of failed pairs (singular covariance, etc.)
 
+bhatt_within_dp_CR1 <- bhatt_dist_within(illu_crowns_out$area_filt, crowns, "LianaFullC", "CR1")
+bhatt_within_dp_CR2 <- bhatt_dist_within(illu_crowns_out$area_filt, crowns, "LianaFullC", "CR2")
 
 bhatt_within_dp_CR3 <- bhatt_dist_within(illu_crowns_out$area_filt, crowns, "LianaFullC", "CR3")
 bhatt_within_dp_CR3$mean_dist
@@ -565,6 +570,68 @@ bhatt_within_md_1$mean_dist
 bhatt_within_md_1$mean_coeff
 sum(is.na(bhatt_within_md_1$distances$dist_bhatt)) 
 
+## Results boxplot ####
+between_df <- data.frame(
+  group = c("DP CR0 vs CR3", "MD 0 vs 1"),
+  dist_bhatt = c(bhatt_dist_dp_LianaVSTrees, bhatt_dist_md_LianaVSTrees),
+  coeff_bhatt = c(bhatt_coeff_dp_LianaVSTrees, bhatt_coeff_md_LianaVSTrees),
+  type = "Between"
+)
+
+combine_within <- function(result, group_name) {
+  df <- result$distances
+  df$group <- group_name
+  df
+}
+
+all_within <- rbind(
+  combine_within(bhatt_within_dp_CR0, "DP CR0"),
+  combine_within(bhatt_within_dp_CR1, "DP CR1"),
+  combine_within(bhatt_within_dp_CR2, "DP CR2"),
+  combine_within(bhatt_within_dp_CR3, "DP CR3"),
+  combine_within(bhatt_within_md_0, "MD 0"),
+  combine_within(bhatt_within_md_1, "MD 1")
+)
+
+ggplot(all_within, aes(x = group, y = dist_bhatt, fill = group)) +
+  geom_boxplot(outlier.shape = NA) +
+  coord_cartesian(ylim = c(0, quantile(all_within$dist_bhatt, 0.95, na.rm = TRUE))) +
+  labs(x = "Group", 
+       y = "Bhattacharyya distance", 
+       title = "Bhattacharyya distance within classes") +
+  theme(legend.position = "none")
+
+all_within$type <- "Within"
+
+combined <- rbind(
+  all_within[, c("group", "dist_bhatt", "coeff_bhatt", "type")],
+  between_df
+)
+
+combined$group <- factor(combined$group, levels = c(
+  "DP CR0", "DP CR1", "DP CR2", "DP CR3", "MD 0", "MD 1",
+  "DP CR0 vs CR3", "MD 0 vs 1"
+))
+
+
+ggplot(combined, aes(x = group, y = dist_bhatt)) +
+  geom_boxplot(
+    data = subset(combined, type == "Within"),
+    aes(fill = group), outlier.shape = NA) +
+  geom_point(
+    data = subset(combined, type == "Between"),
+    color = "red", size = 3, shape = 18) +
+  geom_text(
+    data = subset(combined, type == "Between"),
+    aes(label = round(dist_bhatt, 3)),
+    color = "red", vjust = -1, size = 3.5, fontface = "bold")+
+  scale_y_log10() +
+  labs(
+    x = "Group",
+    y = "Bhattacharyya distance (log scale)",
+    title = "Bhattacharya distance : within classes (boxplots) VS between classes (red dots)") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1))
 
 # Mean spectrum comparison ###################################################
 
