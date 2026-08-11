@@ -29,6 +29,7 @@ setwd ("D:/DataCamille/")
 
 ## HSI mosaic ####
 r <- rast("HSI/mosaic_2016/nou_20160921_l1c_mosaic.bsq")
+# r <- rast("HSI/mosaic_2023/mosaic/nou_20231025_l1c_mosaic.bsq")
 nlyr(r) #number of spectral bands
 
 ## Illu ####
@@ -44,20 +45,23 @@ blob <- project(blob, crs(r))
 
 area_blob <- crop(r, blob, mask=TRUE)
 #plot (area_blob) # /!\ creates one plot per band
-#plot(area_blob[[3]]) # the number is the rank of the band not it's value
+plot(area_blob[[3]]) # the number is the rank of the band not it's value
 
-### Taking into account the liana label ####
+# Taking into account the liana label
 label_blob <- rasterize(blob, area_blob, field = "Type")
+
+# Normalized data
+normalized_blob <- area_blob / mean(area_blob, na.rm = TRUE)
 
 ## Crowns from drone photos (DP) ####
 crowns <- vect("Couronnes/Crowns_Liana_2025_GP.shp")
 crowns <- project(crowns, crs(r))
 
 area_crowns <- crop(r, crowns, mask=TRUE)
-#plot(area_crowns[[53]]) 
 
 label_crowns <- rasterize(crowns, area_crowns, field = "LianaFullC")
 
+normalized_crowns <- area_crowns / mean(area_crowns, na.rm =TRUE)
 
 # Removing pixel based on illu ###########################################
 
@@ -86,13 +90,13 @@ filter_by_illu <- function(illu_raster, area, label, threshold){
   return(output_list)
 }
 
-##For DP crowns ####
+##For DP (crowns) ####
 
-illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
+illu_crowns_out <- filter_by_illu(illu, normalized_crowns, label_crowns, med_illu)
 
-##For MD crowns ####
+##For MD (blob) ####
 
-illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
+illu_blob_out <- filter_by_illu(illu, normalized_blob, label_blob, med_illu)
 
 # tSNE ####################################################################################
 
@@ -170,11 +174,9 @@ crowns_filt_valid <- DP_per_pixel$matrix
 illu_crowns_valid <- DP_per_pixel$illu
 label_crowns_valid <- DP_per_pixel$labels
 
-### tSNE ####
 
 tsne_out <- Rtsne(seed=2, crowns_filt_valid)
 
-### tSNE plot ####
 tsne_plot <- data.frame(
   x = tsne_out$Y[,1],
   y = tsne_out$Y[,2],
@@ -195,9 +197,7 @@ ggplot(tsne_plot, aes(x = x, y = y, color = illu)) +
   scale_color_viridis_c(name = "Illumination") +
   labs(title = "tSNE of the HSI values of the DP dataset colored by illumination")
 
-## tSNE for MD per pixel ###########################################################
-
-### Creation of the correct matrix ####
+## For MD per pixel ###########################################################
 
 MD_per_pixel <- tsne_per_pixel(illu_blob_out$area_filt, illu_blob_out$label_filt, illu_blob_out$area_crop)
 
@@ -205,11 +205,9 @@ blob_filt_valid <- MD_per_pixel$matrix
 illu_blob_valid <- MD_per_pixel$illu
 label_blob_valid <- MD_per_pixel$label
 
-### tSNE ####
 
 tsne_out_blob <- Rtsne(seed=2, blob_filt_valid)
 
-### tSNE plot ####
 tsne_plot_blob <- data.frame(
   x = tsne_out_blob$Y[,1],
   y = tsne_out_blob$Y[,2],
@@ -234,7 +232,7 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = illu)) +
   labs(title = "tSNE of the HSI values of the MD dataset colored by illumination")
 
 
-## For DP per polygon (crown) ################################################################
+## For DP per polygon ################################################################
 
 DP_per_poly <- tsne_per_polygon(illu_crowns_out$area_filt, crowns, "LianaFullC") #, illu)
 
@@ -242,10 +240,8 @@ crowns_poly_valid <- DP_per_poly$matrix
 # illu_crowns_poly_valid <- DP_per_pixel$illu
 label_crowns_poly_valid <- DP_per_poly$label
 
-### tSNE
 tsne_out_crowns_poly <- Rtsne(crowns_poly_valid, perplexity = 10, seed = 2)  #low perplexity due to few polygons
 
-### tSNE plot
 tsne_plot_crowns_poly <- data.frame(
   x = tsne_out_crowns_poly$Y[,1],
   y = tsne_out_crowns_poly$Y[,2],
@@ -385,17 +381,36 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
 ##Distance between classes####
 
 bhatt_dist_btwn <- function (matrix, matrix_label, label1, label2){
-  
+
   #Reduce dimensionality
-  res_pca <- PCA(matrix, scale.unit = TRUE, graph = FALSE)
+  max_ncp <- min(nrow(matrix) - 1, ncol(matrix))
+  res_pca <- PCA(matrix, scale.unit = TRUE, ncp = max_ncp, graph = FALSE)
   cum_var <- res_pca$eig[, "cumulative percentage of variance"]
   n_components <- which(cum_var >= 85)[1]
   
   matrix_reduced <- res_pca$ind$coord[, 1:n_components]
   
+  
   #Separate groups
   group0 <- matrix_reduced[matrix_label == label1, ]
   group1 <- matrix_reduced[matrix_label == label2, ]
+  
+  
+  # Test if the distribution is Gaussian first
+  shapiro_group0 <- apply(group0, 2, function(x) shapiro.test(x)$p.value)
+  shapiro_group1 <- apply(group1, 2, function(x) shapiro.test(x)$p.value)
+  
+  par(mfrow = c(2, 3))
+  for (i in 1:5) {
+    qqnorm(group0[, i], main = paste("Composante", i, "- groupe 0"))
+    qqline(group0[, i])
+  }
+  
+  par(mfrow = c(2, 3))
+  for (i in 1:5) {
+    qqnorm(group1[, i], main = paste("Composante", i, "- groupe 1"))
+    qqline(group1[, i])
+  }
   
   # Calculate mean vectors
   mu0 <- colMeans(group0)
@@ -407,10 +422,16 @@ bhatt_dist_btwn <- function (matrix, matrix_label, label1, label2){
   
   dist_bhatt <- bhattacharyya.dist(mu0, mu1, sigma0, sigma1)
   
+  coeff_bhatt <- exp(-dist_bhatt)
+  
   output <- list(
     mean0 = mu0,
     mean1 = mu1,
-    bhatt = dist_bhatt
+    dist_bhatt = dist_bhatt,
+    coeff_bhatt = coeff_bhatt,
+    shapiro_group0 = shapiro_group0,
+    shapiro_group1 = shapiro_group1,
+    n_components = n_components
   )
   
   return(output) 
@@ -419,41 +440,133 @@ bhatt_dist_btwn <- function (matrix, matrix_label, label1, label2){
 ### With DP dataset ####
 separability_dp_within <- bhatt_dist_btwn(crowns_poly_valid, label_crowns_poly_valid, "CR0", "CR3")
 
-bhatt_dist_dp_LianaVSTrees <- separability_dp_within$bhatt
+#Check if we keep the Bhattacharya distance
+separability_dp_within$shapiro_group0
+separability_dp_within$shapiro_group0 < 0.05
+
+separability_dp_within$shapiro_group1
+separability_dp_within$shapiro_group1 < 0.05
+
+#Results
+bhatt_dist_dp_LianaVSTrees <- separability_dp_within$dist_bhatt
 bhatt_dist_dp_LianaVSTrees
 
+bhatt_coeff_dp_LianaVSTrees <-separability_dp_within$coeff_bhatt
+bhatt_coeff_dp_LianaVSTrees
 
 ### With MD dataset ####
 separability_md_within <- bhatt_dist_btwn(blob_poly_valid, label_blob_poly_valid, 0, 1)
 
+separability_md_within$shapiro_group0
+separability_md_within$shapiro_group0<0.05
+
+separability_md_within$shapiro_group1
+separability_md_within$shapiro_group1<0.05
+
 bhatt_dist_dp_LianaVSTrees <- separability_md_within$bhatt
 bhatt_dist_dp_LianaVSTrees
 
-## Distance within classes #### 
 
-# bhatt_dist_within <- function(shapefile, mask_illu, matrix_area_filtered, good_bands){
-# 
-#   shapefile$poly_ID <- seq_len(nrow(shapefile))
-# 
-#   label_poly_ID <- rasterize(shapefile, area, field = "poly_ID")
-#   label_poly_ID_filt <- mask (label_poly_ID, mask_illu, maskvalues = c(FALSE, NA))
-#   label_poly_ID_m <- as.matrix(label_poly_ID_filt)[, 1]
-# 
-#   valid_idx_poly_ID <- which(!is.na(label_poly_ID_m) & complete.cases(matrix_area_filtered[, good_bands]))
-# 
-#   pixel_matrix <- matrix_area_filtered[valid_idx_poly_ID, good_bands]
-#   pixel_ID <- label_poly_ID_m[valid_idx_poly_ID]
-# 
-#   res_pca <- PCA(pixel_matrix, scale.unit = TRUE, graph = FALSE)
-# 
-#   pca <- FactoMineR::PCA(pixel_matrix, scale.unit = TRUE, graph = FALSE)
-#   cum_var <- pca$eig[, "cumulative percentage of variance"]
-#   n_components <- which(cum_var >= 85)[1]
-# 
-#   pixel_reduced <- res_pca$ind$coord[, 1:n_components]
-# }
+bhatt_dist_within <- function(area_filtered, area_vector, label_name, target_label){
+  
+  #Get unique id for each polygon
+  area_vector$poly_id <- seq_len(nrow(area_vector))
+  
+  poly_id_r <- rasterize(area_vector, area_filtered, field = "poly_id")
+  
+  area_matrix <- as.matrix(area_filtered)
+  poly_id_m <- as.matrix(poly_id_r)[, 1]
+  class_by_id <- values(area_vector)[[label_name]]
+  
+  na_per_band <- colSums(is.na(area_matrix))
+  good_bands <- na_per_band < nrow(area_matrix)
+  
+  valid_idx <- which(!is.na(poly_id_m) & complete.cases(area_matrix[, good_bands]))
+  
+  pixel_matrix <- area_matrix[valid_idx, good_bands]
+  pixel_poly_id <- poly_id_m[valid_idx]
+  
+  # Keep only the pixels of the target label
+  keep_ids <- which(class_by_id == target_label)
+  keep_px <- pixel_poly_id %in% keep_ids
+  
+  pixel_matrix <- pixel_matrix[keep_px, ]
+  pixel_poly_id <- pixel_poly_id[keep_px]
+  
+  # Dimensionality reduction
+  max_ncp <- min(nrow(pixel_matrix) - 1, ncol(pixel_matrix))
+  res_pca <- PCA(pixel_matrix, scale.unit = TRUE, ncp = max_ncp, graph = FALSE)
+  cum_var <- res_pca$eig[, "cumulative percentage of variance"]
+  n_components <- which(cum_var >= 85)[1]
+  
+  pixel_reduced <- res_pca$ind$coord[, 1:n_components]
+  
+  # Calculate mu & sigma for each polygon
+  polygon_ids <- unique(pixel_poly_id)
+  
+  polygon_stats <- lapply(polygon_ids, function(id) {
+    px <- pixel_reduced[pixel_poly_id == id, , drop = FALSE]
+    if (nrow(px) <= n_components) return(NULL)  # pas assez de pixels pour estimer Sigma
+    list(mu = colMeans(px), Sigma = cov(px), n = nrow(px))
+  })
+  names(polygon_stats) <- polygon_ids
+  polygon_stats <- Filter(Negate(is.null), polygon_stats)
+  
+  ids <- names(polygon_stats)
+  if (length(ids) < 2) {
+    warning("Pas assez de polygones valides pour calculer des distances intra-classe.")
+    return(NULL)
+  }
+  
+  # Distance by pairs
+  pairs <- combn(ids, 2, simplify = FALSE)
+  
+  dist_df <- do.call(rbind, lapply(pairs, function(p) {
+    s1 <- polygon_stats[[p[1]]]
+    s2 <- polygon_stats[[p[2]]]
+    d <- tryCatch(
+      bhattacharyya.dist(s1$mu, s2$mu, s1$Sigma, s2$Sigma),
+      error = function(e) NA
+    )
+    data.frame(poly1 = p[1], poly2 = p[2], dist_bhatt = d, coeff_bhatt = exp(-d))
+  }))
+  
+  output <- list(
+    distances = dist_df,
+    n_polygons = length(ids),
+    n_components = n_components,
+    mean_dist = mean(dist_df$dist_bhatt, na.rm = TRUE),
+    mean_coeff = mean(dist_df$coeff_bhatt, na.rm = TRUE)
+  )
+  
+  return(output)
+}
 
-## Mean spectrum comparison ###################################################
+#Results
+
+bhatt_within_dp_CR0 <- bhatt_dist_within(illu_crowns_out$area_filt, crowns, "LianaFullC", "CR0")
+bhatt_within_dp_CR0$mean_dist
+bhatt_within_dp_CR0$mean_coeff
+sum(is.na(bhatt_within_dp_CR0$distances$dist_bhatt))   # number of failed pairs (singular covariance, etc.)
+
+
+bhatt_within_dp_CR3 <- bhatt_dist_within(illu_crowns_out$area_filt, crowns, "LianaFullC", "CR3")
+bhatt_within_dp_CR3$mean_dist
+bhatt_within_dp_CR3$mean_coeff
+sum(is.na(bhatt_within_dp_CR0$distances$dist_bhatt))
+
+bhatt_within_md_0 <- bhatt_dist_within(illu_blob_out$area_filt, blob, "Type", "0")
+bhatt_within_md_0$mean_dist
+bhatt_within_md_0$mean_coeff
+sum(is.na(bhatt_within_md_0$distances$dist_bhatt))   
+
+bhatt_within_md_1 <- bhatt_dist_within(illu_blob_out$area_filt, blob, "Type", "1")
+bhatt_within_md_1$mean_dist
+bhatt_within_md_1$mean_coeff
+sum(is.na(bhatt_within_md_1$distances$dist_bhatt)) 
+
+
+# Mean spectrum comparison ###################################################
 
 mean_spectrum_by_group <- function(matrix_valid, labels_valid, wavelengths, dataset_name) {
   groups <- unique(labels_valid)
@@ -477,7 +590,6 @@ spec_crowns <- mean_spectrum_by_group(crowns_poly_valid, label_crowns_poly_valid
 spec_blob   <- mean_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, wavelengths_blob, "MD")
 
 all_spectra <- rbind(spec_crowns, spec_blob)
-
 
 selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1"))
 
