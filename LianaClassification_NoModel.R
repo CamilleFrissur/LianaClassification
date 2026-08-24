@@ -137,6 +137,7 @@ filter_by_vnir <- function(area, label, vnir_range = c(400, 1000),
                                        threshold_pct = 0.5,
                                        valid_range = c(-2000, 12000)){
   
+  
   area_matrix <- as.matrix(area)
   na_per_band <- colSums(is.na(area_matrix))
   good_bands <- na_per_band < nrow(area_matrix)
@@ -174,38 +175,40 @@ filter_by_vnir <- function(area, label, vnir_range = c(400, 1000),
 
 ## Removing pixel based on NIR reflectance####
 
-filter_by_nir <- function(area_raw, label, nir_range = c(780, 2500), 
-                                      threshold = 0.20, scale_factor){
-  
-  area_matrix <- as.matrix(area_raw)
+filter_by_nir <- function(area, label, nir_range = c(780, 2500),
+                                      threshold_pct = 0.20){
+
+  area_matrix <- as.matrix(area)
   na_per_band <- colSums(is.na(area_matrix))
   good_bands <- na_per_band < nrow(area_matrix)
+
+  wl <- extract_wavelength(names(area))[good_bands]
   
-  wl <- extract_wavelength(names(area_raw))[good_bands]
   nir_idx <- which(wl >= nir_range[1] & wl <= nir_range[2])
-  
-  nir_stack <- area_raw[[nir_idx]]
-  nir_mean_px <- mean(nir_stack, na.rm = TRUE)   
-  
-  threshold_value <- threshold * scale_factor   # ex: 0.20 * 10000 = 2000
-  
-  n_before <- global(!is.na(area_raw[[1]]), "sum")$sum
-  
+
+  nir_stack <- area[[nir_idx]]
+  nir_mean_px <- mean(nir_stack, na.rm = TRUE)
+  nir_mean_values <- as.vector(nir_mean_px)
+  nir_mean_values <- nir_mean_values[!is.na(nir_mean_values)]
+
+  threshold_value <- quantile(nir_mean_values, probs = threshold_pct, na.rm = TRUE)
+
   nir_mask <- nir_mean_px >= threshold_value
   
-  area_filtered <- mask(area_raw, nir_mask, maskvalues = c(FALSE, NA))
+  n_before <- global(!is.na(area[[1]]), "sum")$sum
+
+  area_filtered <- mask(area, nir_mask, maskvalues = c(FALSE, NA))
   label_filtered <- mask(label, nir_mask, maskvalues = c(FALSE, NA))
-  
+
   n_after <- global(!is.na(area_filtered[[1]]), "sum")$sum
-  per_n_out <- n_after / n_before
-  
+
   output_list <- list(
     threshold_value = threshold_value,
     area_filt = area_filtered,
     label_filt = label_filtered,
-    threshold_qual = per_n_out
+    threshold_qual = n_after / n_before
   )
-  
+
   return(output_list)
 }
 
@@ -227,27 +230,30 @@ illu_crop_blob <- illu_blob_out$area_crop
 
 ### VNIR ####
 spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns, threshold_pct = 0.5)
+spec_crowns_filt_VNIR$threshold_qual
 area_crowns_filt <- spec_crowns_filt_VNIR$area_filt
 label_crowns_filt<- spec_crowns_filt_VNIR$label_filt
 illu_crop_crowns <- filter_by_illu(illu, normalized_crowns, label_crowns, med_illu)$area_crop *0
 
 spec_blob_filt_VNIR   <- filter_by_vnir(area_blob, label_blob, threshold_pct = 0.5)
+spec_blob_filt_VNIR$threshold_qual
 area_blob_filt <- spec_blob_filt_VNIR$area_filt
 label_blob_filt <- spec_blob_filt_VNIR$label_filt
 illu_crop_blob <-filter_by_illu(illu, normalized_blob, label_blob, med_illu)$area_crop *0
 
 ### NIR ####
-# spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns, scale_factor = 10000)
-# area_crowns_filt <- spec_crowns_filt_NIR$area_filt
-# label_crowns_filt<- spec_crowns_filt_VNIR$label_filt
-# spec_crowns_filt_NIR$threshold_qual  # % remaining pixels  
-# illu_crop_crowns <-NULL
 
-# spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob, scale_factor = 10000)
-# area_blob_filt <- spec_blob_filt_NIR$area_filt
-# label_blob_filt <- spec_blob_filt_NIR$label_filt
-# spec_blob_filt_NIR$threshold_qual  
-# illu_crop_blob <-NULL
+spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns, threshold = 0.2)
+area_crowns_filt <- spec_crowns_filt_NIR$area_filt
+label_crowns_filt<- spec_crowns_filt_VNIR$label_filt
+spec_crowns_filt_NIR$threshold_qual  # % remaining pixels
+illu_crop_crowns <-filter_by_illu(illu, normalized_blob, label_blob, med_illu)$area_crop *0
+
+spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob, threshold = 0.2)
+area_blob_filt <- spec_blob_filt_NIR$area_filt
+label_blob_filt <- spec_blob_filt_NIR$label_filt
+spec_blob_filt_NIR$threshold_qual
+illu_crop_blob <- filter_by_illu(illu, normalized_blob, label_blob, med_illu)$area_crop *0
 
 # Dimensionality reduction and data visualization ###############################
 
