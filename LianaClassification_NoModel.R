@@ -30,8 +30,8 @@ setwd ("D:/DataCamille/")
 # Uploading data and cropping ##########################################
 
 ## HSI mosaic ####
-r <- rast("HSI/mosaic_2016/nou_20160921_l1c_mosaic.bsq") #2016
-# r <- rast("HSI/mosaic_2023/mosaic/nou_20231025_l1c_mosaic.bsq") #2023
+# r <- rast("HSI/mosaic_2016/nou_20160921_l1c_mosaic.bsq") #2016
+r <- rast("HSI/mosaic_2023/mosaic/nou_20231025_l1c_mosaic.bsq") #2023
 nlyr(r) #number of spectral bands
 # plot(r[[470]])
 # hist(r[[470]], breaks = 100)
@@ -73,7 +73,6 @@ normalized_crowns <- area_crowns / mean(area_crowns, na.rm =TRUE)
 # Only used with the 2016 data (illu file missing fo 2023)
 
 med_illu <- global(illu[[1]], fun = median, na.rm = TRUE)$global
-mean_illu <- global(illu[[1]], fun = mean, na.rm = TRUE)$global
 perc90_illu <- global(illu[[1]], fun = quantile, probs = 0.9, na.rm = TRUE)$X90.
 
 filter_by_illu <- function(illu_raster, area, label, threshold){
@@ -109,34 +108,10 @@ extract_wavelength <- function(band_names) {
   return(wl)
 }
 
-clean_extreme_values <- function(area, valid_range = c(-2000, 12000)) {
-  clamp(area, lower = valid_range[1], upper = valid_range[2], values = FALSE)
-}
-
-global_spectrum <- function(area, dataset_name = "dataset") {
-  area_matrix <- as.matrix(area)
-  
-  na_per_band <- colSums(is.na(area_matrix))
-  good_bands <- na_per_band < nrow(area_matrix)
-  
-  no_na_row <- rowSums(is.na(area_matrix)) == 0
-  valid_idx <- which(no_na_row)
-  
-  area_valid <- area_matrix[valid_idx, good_bands]
-  
-  wavelengths <- extract_wavelength(names(area))[good_bands]
-  # wavelengths <- as.numeric(names(area))[good_bands]
-  
-  data.table(
-    wavelength = wavelengths,
-    reflectance = colMeans(area_valid, na.rm = TRUE)
-  )
-}
 
 filter_by_vnir <- function(area, label, vnir_range = c(400, 1000), 
                                        threshold_pct = 0.5,
                                        valid_range = c(-2000, 12000)){
-  
   
   area_matrix <- as.matrix(area)
   na_per_band <- colSums(is.na(area_matrix))
@@ -214,7 +189,7 @@ filter_by_nir <- function(area, label, nir_range = c(780, 2500),
 
 
 
-## Applying the filter #########################################################
+## Applying/choosing the filter #########################################################
 # Comment and/or uncomment to choose the right filter
 
 ### Illu ####
@@ -233,13 +208,15 @@ spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns, threshold_pct
 spec_crowns_filt_VNIR$threshold_qual
 area_crowns_filt <- spec_crowns_filt_VNIR$area_filt
 label_crowns_filt<- spec_crowns_filt_VNIR$label_filt
-illu_crop_crowns <- filter_by_illu(illu, normalized_crowns, label_crowns, med_illu)$area_crop *0
+illu_crop_crowns <- area_crowns_filt *0
+# illu_crop_crowns <- filter_by_illu(illu, normalized_crowns, label_crowns, med_illu)$area_crop *0
 
 spec_blob_filt_VNIR   <- filter_by_vnir(area_blob, label_blob, threshold_pct = 0.5)
 spec_blob_filt_VNIR$threshold_qual
 area_blob_filt <- spec_blob_filt_VNIR$area_filt
 label_blob_filt <- spec_blob_filt_VNIR$label_filt
-illu_crop_blob <-filter_by_illu(illu, normalized_blob, label_blob, med_illu)$area_crop *0
+illu_crop_blob <- area_blob_filt * 0
+# illu_crop_blob <-filter_by_illu(illu, normalized_blob, label_blob, med_illu)$area_crop *0
 
 ### NIR ####
 
@@ -256,6 +233,8 @@ spec_blob_filt_NIR$threshold_qual
 illu_crop_blob <- filter_by_illu(illu, normalized_blob, label_blob, med_illu)$area_crop *0
 
 # Dimensionality reduction and data visualization ###############################
+
+## Data prep ##############################################################
 
 data_prep_per_pixel <- function(area_filtered, label_filtered, illu_crop_area, max_na_pct = 0.05){
   area_matrix <- as.matrix(area_filtered)
@@ -327,8 +306,6 @@ data_prep_per_poly <- function(area_filtered, area_vector, label_name){
   return(output_list)
 }
 
-## Data prep ##############################################################
-
 ### Data prep for DP
 DP_per_pixel <- data_prep_per_pixel(area_crowns_filt, label_crowns_filt, illu_crop_crowns)
 
@@ -361,24 +338,24 @@ label_blob_poly_valid <- MD_per_poly$label
 ## t-SNE #######################################################################
 
 ## DP per pixel
-tsne_out <- Rtsne(seed=2, crowns_filt_valid)
+tsne_out_crowns <- Rtsne(seed=2, crowns_filt_valid)
 
-tsne_plot <- data.frame(
-  x = tsne_out$Y[,1],
-  y = tsne_out$Y[,2],
+tsne_plot_crowns <- data.frame(
+  x = tsne_out_crowns$Y[,1],
+  y = tsne_out_crowns$Y[,2],
   LianaFullCrown = as.factor(label_crowns_valid)
 )
 
-tsne_plot$illu <- illu_crowns_valid
+tsne_plot_crowns$illu <- illu_crowns_valid
 
-ggplot(tsne_plot, aes(x = x, y = y, color = LianaFullCrown)) +
+ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "tSNE of the HSI values of the drone photos dataset" )
 
 # Only useful if the illumination filter was used
-ggplot(tsne_plot, aes(x = x, y = y, color = illu)) +
+ggplot(tsne_plot_crowns, aes(x = x, y = y, color = illu)) +
   geom_point() +
   scale_color_viridis_c(name = "Illumination") +
   labs(title = "tSNE of the HSI values of the DP dataset colored by illumination")
@@ -727,8 +704,9 @@ bhatt_dist_btwn <- function (matrix, matrix_label, label1, label2){
 # 
 # bhatt_coeff_md_LianaVSTrees <- separability_md_within$coeff_bhatt
 # bhatt_coeff_md_LianaVSTrees
-# ## Distance within classes ####
-# 
+
+## Distance within classes ####
+ 
 # bhatt_dist_within <- function(area_filtered, area_vector, label_name, target_label){
 #   
 #   #Get unique id for each polygon
@@ -892,11 +870,15 @@ bhatt_dist_btwn <- function (matrix, matrix_label, label1, label2){
 #   theme(legend.position = "none",
 #         axis.text.x = element_text(angle = 45, hjust = 1))
 # 
+
+
 # Mean spectrum comparison ###################################################
 
-mean_spectrum_by_group <- function(matrix_valid, labels_valid, wavelengths, dataset_name) {
+mean_spectrum_by_group <- function(matrix_valid, labels_valid, dataset_name) {
   groups <- unique(labels_valid)
 
+  wavelengths <- extract_wavelength(colnames(matrix_valid))
+  
   spectra_list <- lapply(groups, function(g) {
     mean_spec <- colMeans(matrix_valid[labels_valid == g, , drop = FALSE], na.rm = TRUE)
     data.frame(
@@ -908,12 +890,9 @@ mean_spectrum_by_group <- function(matrix_valid, labels_valid, wavelengths, data
 
   do.call(rbind, spectra_list)
 }
-
-wavelengths_blob <- as.numeric(names(illu_blob_out$area_filt))[MD_per_poly$goodbands]
-wavelengths_crowns <- as.numeric(names(illu_crowns_out$area_filt))[DP_per_poly$goodbands]
-
-spec_crowns <- mean_spectrum_by_group(crowns_poly_valid, label_crowns_poly_valid, wavelengths_crowns, "DP")
-spec_blob   <- mean_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, wavelengths_blob, "MD")
+  
+spec_crowns <- mean_spectrum_by_group(crowns_poly_valid, label_crowns_poly_valid, "DP")
+spec_blob   <- mean_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, "MD")
 
 all_spectra <- rbind(spec_crowns, spec_blob)
 
