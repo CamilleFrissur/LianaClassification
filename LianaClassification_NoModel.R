@@ -557,197 +557,197 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
   )+
   labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (NIR filter)" )
 
-# Bhattacharyya distance ###################################################
-
-bhatt_dist_pairs <- function(pixel_matrix, groups) {
-  
-  ids <- unique(groups)
-  
-  # calculate mu & Sigma for each group
-  group_stats <- lapply(ids, function(id) {
-    px <- pixel_matrix[groups == id, , drop = FALSE] #drop = FALSE keep the class as matrix
-    if (nrow(px) <= ncol(px)) return(NULL)  # check if n_pixels/n_bands so sigma can be inverted
-    list(mu = colMeans(px), Sigma = cov(px), n = nrow(px)) #else
-  })
-  names(group_stats) <- ids
-  group_stats <- Filter(Negate(is.null), group_stats) #remove groupe with not enough pixels , i.e for which sigma was not calculated
-  
-  valid_ids <- names(group_stats) 
-  if (length(valid_ids) < 2) { #we need at least two groups to calculate a distance
-    warning("Not enough groups to calculate a distance")
-    return(NULL)
-  }
-  
-  #Calculate the number of pairs
-  n_pairs <- length(valid_ids) * (length(valid_ids) - 1) / 2
-  
-  #Create an empty df
-  results <- data.frame(
-    group1 = character(n_pairs),
-    group2 = character(n_pairs),
-    dist_bhatt = numeric(n_pairs),
-    coeff_bhatt = numeric(n_pairs),
-    n1 = numeric(n_pairs),
-    n2 = numeric(n_pairs)
-  )
-  
-  # Check every possible pairs and calculate mu and sigma
-  row_i <- 1
-  for (i in 1:(length(valid_ids) - 1)) {
-    for (j in (i + 1):length(valid_ids)) {
-      
-      g1 <- valid_ids[i]
-      g2 <- valid_ids[j]
-      
-      s1 <- group_stats[[g1]]
-      s2 <- group_stats[[g2]]
-      
-      # Calculate the bhattacharya distance
-      d <- tryCatch(
-        bhattacharyya.dist(s1$mu, s2$mu, s1$sigma, s2$sigma),
-        error = function(e) NA)
-      
-      results$group1[row_i] <- g1
-      results$group2[row_i] <- g2
-      results$dist_bhatt[row_i] <- d
-      results$coeff_bhatt[row_i] <- exp(-d)
-      results$n1[row_i] <- s1$n
-      results$n2[row_i] <- s2$n
-      
-      row_i <- row_i + 1
-    }
-  }
-  
-  dist_df <- results
-  
-  return(dist_df)
-}
-
-# bhatt_dist_btwn <- function(pixel_matrix, pixel_label, label1, label2) {
-#   keep <- pixel_label %in% c(label1, label2)
-#   bhatt_dist_pairs(pixel_matrix[keep, ], pixel_label[keep])
-# }
-
-bhatt_dist_within <- function(area_filtered, vect_obj, label_name, target_label) {
-  
-  vect_obj$poly_id <- seq_len(nrow(vect_obj))
-  poly_id_r <- rasterize(vect_obj, area_filtered, field = "poly_id")
-  
-  area_matrix <- as.matrix(area_filtered)
-  poly_id_m <- as.matrix(poly_id_r)[, 1]
-  class_by_id <- values(vect_obj)[[label_name]]
-  
-  na_per_band <- colSums(is.na(area_matrix))
-  good_bands <- na_per_band < nrow(area_matrix)
-  
-  valid_idx <- which(!is.na(poly_id_m) & complete.cases(area_matrix[, good_bands]))
-  
-  pixel_matrix <- area_matrix[valid_idx, good_bands]
-  pixel_poly_id <- poly_id_m[valid_idx]
-  
-  keep_ids <- which(class_by_id == target_label)
-  keep_px <- pixel_poly_id %in% keep_ids
-  
-  bhatt_dist_pairs(pixel_matrix[keep_px, ], pixel_poly_id[keep_px])
-}
-
-
-# ##Distance between classes
+# # Bhattacharyya distance ###################################################
 # 
-bhatt_dist_btwn <- function (matrix, matrix_label, label1, label2){
-
-  # #Reduce dimensionality
-  # max_ncp <- min(nrow(matrix) - 1, ncol(matrix))
-  # res_pca <- PCA(matrix, scale.unit = TRUE, ncp = max_ncp, graph = FALSE)
-  # cum_var <- res_pca$eig[, "cumulative percentage of variance"]
-  # n_components <- which(cum_var >= 85)[1]
-  #
-  # matrix_reduced <- res_pca$ind$coord[, 1:n_components]
-  #
-  # plot(cum_var)
-
-  matrix_reduced <- matrix
-
-  #Separate groups
-  group0 <- matrix_reduced[matrix_label == label1, ]
-  group1 <- matrix_reduced[matrix_label == label2, ]
-
-
-  # Test if the distribution is Gaussian first
-  shapiro_group0 <- apply(group0, 2, function(x) shapiro.test(x)$p.value)
-  shapiro_group1 <- apply(group1, 2, function(x) shapiro.test(x)$p.value)
-
-  # par(mfrow = c(2, 3))
-  # for (i in 1:n_components) {
-  #   qqnorm(group0[, i], main = paste("Composante", i, "- groupe 0"))
-  #   qqline(group0[, i])
-  # }
-  #
-  # par(mfrow = c(2, 3))
-  # for (i in 1:n_components) {
-  #   qqnorm(group1[, i], main = paste("Composante", i, "- groupe 1"))
-  #   qqline(group1[, i])
-  # }
-
-  # Calculate mean vectors
-  mu0 <- colMeans(group0)
-  mu1 <- colMeans(group1)
-
-  # Calculate covariance matrix
-  sigma0 <- cov(group0)
-  sigma1 <- cov(group1)
-
-  
-    
-  dist_bhatt <- bhattacharyya.dist(mu0, mu1, sigma0, sigma1)
-
-  coeff_bhatt <- exp(-dist_bhatt)
-
-  output <- list(
-    mean0 = mu0,
-    mean1 = mu1,
-    dist_bhatt = dist_bhatt,
-    coeff_bhatt = coeff_bhatt,
-    shapiro_group0 = shapiro_group0,
-    shapiro_group1 = shapiro_group1 #,
-    # n_components = n_components
-  )
-
-  return(output)
-}
-
-### With DP dataset ####
-
-separability_dp_between <- bhatt_dist_btwn(crowns_poly_valid[,1:135], label_crowns_poly_valid, "CR0", "CR3")
-
-#Check if we keep the Bhattacharya distance
-separability_dp_between$shapiro_group0
-separability_dp_between$shapiro_group0 < 0.05
-
-separability_dp_between$shapiro_group1
-separability_dp_between$shapiro_group1 < 0.05
-
-#Results
-bhatt_dist_dp_LianaVSTrees <- separability_dp_between$dist_bhatt
-bhatt_dist_dp_LianaVSTrees
-
-bhatt_coeff_dp_LianaVSTrees <-separability_dp_between$coeff_bhatt
-bhatt_coeff_dp_LianaVSTrees
-
-### With MD dataset ####
-separability_md_within <- bhatt_dist_btwn(blob_poly_valid, label_blob_poly_valid, 0, 1)
-
-separability_md_within$shapiro_group0
-separability_md_within$shapiro_group0<0.05
-
-separability_md_within$shapiro_group1
-separability_md_within$shapiro_group1<0.05
-
-bhatt_dist_md_LianaVSTrees <- separability_md_within$dist_bhatt
-bhatt_dist_md_LianaVSTrees
-
-bhatt_coeff_md_LianaVSTrees <- separability_md_within$coeff_bhatt
-bhatt_coeff_md_LianaVSTrees
+# bhatt_dist_pairs <- function(pixel_matrix, groups) {
+#   
+#   ids <- unique(groups)
+#   
+#   # calculate mu & Sigma for each group
+#   group_stats <- lapply(ids, function(id) {
+#     px <- pixel_matrix[groups == id, , drop = FALSE] #drop = FALSE keep the class as matrix
+#     if (nrow(px) <= ncol(px)) return(NULL)  # check if n_pixels/n_bands so sigma can be inverted
+#     list(mu = colMeans(px), Sigma = cov(px), n = nrow(px)) #else
+#   })
+#   names(group_stats) <- ids
+#   group_stats <- Filter(Negate(is.null), group_stats) #remove groupe with not enough pixels , i.e for which sigma was not calculated
+#   
+#   valid_ids <- names(group_stats) 
+#   if (length(valid_ids) < 2) { #we need at least two groups to calculate a distance
+#     warning("Not enough groups to calculate a distance")
+#     return(NULL)
+#   }
+#   
+#   #Calculate the number of pairs
+#   n_pairs <- length(valid_ids) * (length(valid_ids) - 1) / 2
+#   
+#   #Create an empty df
+#   results <- data.frame(
+#     group1 = character(n_pairs),
+#     group2 = character(n_pairs),
+#     dist_bhatt = numeric(n_pairs),
+#     coeff_bhatt = numeric(n_pairs),
+#     n1 = numeric(n_pairs),
+#     n2 = numeric(n_pairs)
+#   )
+#   
+#   # Check every possible pairs and calculate mu and sigma
+#   row_i <- 1
+#   for (i in 1:(length(valid_ids) - 1)) {
+#     for (j in (i + 1):length(valid_ids)) {
+#       
+#       g1 <- valid_ids[i]
+#       g2 <- valid_ids[j]
+#       
+#       s1 <- group_stats[[g1]]
+#       s2 <- group_stats[[g2]]
+#       
+#       # Calculate the bhattacharya distance
+#       d <- tryCatch(
+#         bhattacharyya.dist(s1$mu, s2$mu, s1$sigma, s2$sigma),
+#         error = function(e) NA)
+#       
+#       results$group1[row_i] <- g1
+#       results$group2[row_i] <- g2
+#       results$dist_bhatt[row_i] <- d
+#       results$coeff_bhatt[row_i] <- exp(-d)
+#       results$n1[row_i] <- s1$n
+#       results$n2[row_i] <- s2$n
+#       
+#       row_i <- row_i + 1
+#     }
+#   }
+#   
+#   dist_df <- results
+#   
+#   return(dist_df)
+# }
+# 
+# # bhatt_dist_btwn <- function(pixel_matrix, pixel_label, label1, label2) {
+# #   keep <- pixel_label %in% c(label1, label2)
+# #   bhatt_dist_pairs(pixel_matrix[keep, ], pixel_label[keep])
+# # }
+# 
+# bhatt_dist_within <- function(area_filtered, vect_obj, label_name, target_label) {
+#   
+#   vect_obj$poly_id <- seq_len(nrow(vect_obj))
+#   poly_id_r <- rasterize(vect_obj, area_filtered, field = "poly_id")
+#   
+#   area_matrix <- as.matrix(area_filtered)
+#   poly_id_m <- as.matrix(poly_id_r)[, 1]
+#   class_by_id <- values(vect_obj)[[label_name]]
+#   
+#   na_per_band <- colSums(is.na(area_matrix))
+#   good_bands <- na_per_band < nrow(area_matrix)
+#   
+#   valid_idx <- which(!is.na(poly_id_m) & complete.cases(area_matrix[, good_bands]))
+#   
+#   pixel_matrix <- area_matrix[valid_idx, good_bands]
+#   pixel_poly_id <- poly_id_m[valid_idx]
+#   
+#   keep_ids <- which(class_by_id == target_label)
+#   keep_px <- pixel_poly_id %in% keep_ids
+#   
+#   bhatt_dist_pairs(pixel_matrix[keep_px, ], pixel_poly_id[keep_px])
+# }
+# 
+# 
+# # ##Distance between classes
+# # 
+# bhatt_dist_btwn <- function (matrix, matrix_label, label1, label2){
+# 
+#   # #Reduce dimensionality
+#   # max_ncp <- min(nrow(matrix) - 1, ncol(matrix))
+#   # res_pca <- PCA(matrix, scale.unit = TRUE, ncp = max_ncp, graph = FALSE)
+#   # cum_var <- res_pca$eig[, "cumulative percentage of variance"]
+#   # n_components <- which(cum_var >= 85)[1]
+#   #
+#   # matrix_reduced <- res_pca$ind$coord[, 1:n_components]
+#   #
+#   # plot(cum_var)
+# 
+#   matrix_reduced <- matrix
+# 
+#   #Separate groups
+#   group0 <- matrix_reduced[matrix_label == label1, ]
+#   group1 <- matrix_reduced[matrix_label == label2, ]
+# 
+# 
+#   # Test if the distribution is Gaussian first
+#   shapiro_group0 <- apply(group0, 2, function(x) shapiro.test(x)$p.value)
+#   shapiro_group1 <- apply(group1, 2, function(x) shapiro.test(x)$p.value)
+# 
+#   # par(mfrow = c(2, 3))
+#   # for (i in 1:n_components) {
+#   #   qqnorm(group0[, i], main = paste("Composante", i, "- groupe 0"))
+#   #   qqline(group0[, i])
+#   # }
+#   #
+#   # par(mfrow = c(2, 3))
+#   # for (i in 1:n_components) {
+#   #   qqnorm(group1[, i], main = paste("Composante", i, "- groupe 1"))
+#   #   qqline(group1[, i])
+#   # }
+# 
+#   # Calculate mean vectors
+#   mu0 <- colMeans(group0)
+#   mu1 <- colMeans(group1)
+# 
+#   # Calculate covariance matrix
+#   sigma0 <- cov(group0)
+#   sigma1 <- cov(group1)
+# 
+#   
+#     
+#   dist_bhatt <- bhattacharyya.dist(mu0, mu1, sigma0, sigma1)
+# 
+#   coeff_bhatt <- exp(-dist_bhatt)
+# 
+#   output <- list(
+#     mean0 = mu0,
+#     mean1 = mu1,
+#     dist_bhatt = dist_bhatt,
+#     coeff_bhatt = coeff_bhatt,
+#     shapiro_group0 = shapiro_group0,
+#     shapiro_group1 = shapiro_group1 #,
+#     # n_components = n_components
+#   )
+# 
+#   return(output)
+# }
+# 
+# # With DP dataset
+# 
+# separability_dp_between <- bhatt_dist_btwn(crowns_poly_valid[,1:135], label_crowns_poly_valid, "CR0", "CR3")
+# 
+# #Check if we keep the Bhattacharya distance
+# separability_dp_between$shapiro_group0
+# separability_dp_between$shapiro_group0 < 0.05
+# 
+# separability_dp_between$shapiro_group1
+# separability_dp_between$shapiro_group1 < 0.05
+# 
+# #Results
+# bhatt_dist_dp_LianaVSTrees <- separability_dp_between$dist_bhatt
+# bhatt_dist_dp_LianaVSTrees
+# 
+# bhatt_coeff_dp_LianaVSTrees <-separability_dp_between$coeff_bhatt
+# bhatt_coeff_dp_LianaVSTrees
+# 
+# ## With MD dataset 
+# separability_md_within <- bhatt_dist_btwn(blob_poly_valid, label_blob_poly_valid, 0, 1)
+# 
+# separability_md_within$shapiro_group0
+# separability_md_within$shapiro_group0<0.05
+# 
+# separability_md_within$shapiro_group1
+# separability_md_within$shapiro_group1<0.05
+# 
+# bhatt_dist_md_LianaVSTrees <- separability_md_within$dist_bhatt
+# bhatt_dist_md_LianaVSTrees
+# 
+# bhatt_coeff_md_LianaVSTrees <- separability_md_within$coeff_bhatt
+# bhatt_coeff_md_LianaVSTrees
 
 ## Distance within classes ####
 
@@ -851,7 +851,9 @@ bhatt_coeff_md_LianaVSTrees
 # bhatt_within_md_1$mean_coeff
 # sum(is.na(bhatt_within_md_1$distances$dist_bhatt))
 #
-# ## Results boxplot ####
+
+## Results boxplot ####
+
 # between_df <- data.frame(
 #   group = c("DP CR0 vs CR3", "MD 0 vs 1"),
 #   dist_bhatt = c(bhatt_dist_dp_LianaVSTrees, bhatt_dist_md_LianaVSTrees),
@@ -957,9 +959,38 @@ ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
     values = setNames(label_config$color, label_config$group),
     labels = setNames(label_config$display_name, label_config$group))
 
+# Classification ##############################################################
 
-# Classification ####
+## Linear Discriminant Analysis (LDA) #########################################
 
-## Linear Discriminant Analysis (LDA) ####
+## Within DP dataset
+crowns_df <- as.data.frame(crowns_filt_valid)
+crowns_df$ Liana <- as.factor(label_crowns_valid)
 
+set.seed(123)
+crowns_df[,1:474]<- scale(crowns_df[,1:474])
+sample_crowns <- sample(c(TRUE, FALSE), nrow(crowns_df), replace=TRUE, prob=c(0.7,0.3))
+train_crowns <- crowns_df[sample_crowns, ]
+test_crowns <- crowns_df[!sample_crowns, ] 
 
+model_crowns <- lda(Liana ~ ., data = train_crowns)
+predictions_crowns <- predict(model_crowns, test_crowns)
+lda_crowns_accuracy <- mean(predictions_crowns$class==test_crowns$Liana)
+lda_crowns_accuracy #0.6187719
+
+## Within MD dataset
+blob_df <- as.data.frame(blob_filt_valid)
+blob_df$ Liana <- as.factor(label_blob_valid)
+
+set.seed(123)
+blob_df[,1:474]<- scale(blob_df[,1:474])
+sample_blob <- sample(c(TRUE, FALSE), nrow(blob_df), replace=TRUE, prob=c(0.7,0.3))
+train_blob <- blob_df[sample_blob, ]
+test_blob <- blob_df[!sample_blob, ] 
+
+model_blob <- lda(Liana ~ ., data = train_blob)
+predictions_blob <- predict(model_blob, test_blob)
+lda_blob_accuracy <- mean(predictions_blob$class==test_blob$Liana)
+lda_blob_accuracy #0.8671278
+
+## Between MD and DP datasets
