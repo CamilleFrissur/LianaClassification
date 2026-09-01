@@ -963,12 +963,13 @@ ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
 
 ## Linear Discriminant Analysis (LDA) #########################################
 
+
 ## Within DP dataset
 crowns_df <- as.data.frame(crowns_filt_valid)
 crowns_df$ Liana <- as.factor(label_crowns_valid)
 
 set.seed(123)
-crowns_df[,1:474]<- scale(crowns_df[,1:474])
+crowns_df[,1:ncol(crowns_filt_valid)]<- scale(crowns_df[,1:ncol(crowns_filt_valid)])
 sample_crowns <- sample(c(TRUE, FALSE), nrow(crowns_df), replace=TRUE, prob=c(0.7,0.3))
 train_crowns <- crowns_df[sample_crowns, ]
 test_crowns <- crowns_df[!sample_crowns, ] 
@@ -983,7 +984,7 @@ blob_df <- as.data.frame(blob_filt_valid)
 blob_df$ Liana <- as.factor(label_blob_valid)
 
 set.seed(123)
-blob_df[,1:474]<- scale(blob_df[,1:474])
+blob_df[,1:ncol(crowns_filt_valid)]<- scale(blob_df[,1:ncol(crowns_filt_valid)]) #ncol(crowns_filt_valid) should be equal to ncol(blob_filt_valid)
 sample_blob <- sample(c(TRUE, FALSE), nrow(blob_df), replace=TRUE, prob=c(0.7,0.3))
 train_blob <- blob_df[sample_blob, ]
 test_blob <- blob_df[!sample_blob, ] 
@@ -994,3 +995,28 @@ lda_blob_accuracy <- mean(predictions_blob$class==test_blob$Liana)
 lda_blob_accuracy #0.8671278
 
 ## Between MD and DP datasets
+crowns_df <- as.data.frame(crowns_filt_valid)
+crowns_df$Liana <- as.character(label_crowns_valid)
+crowns_df <- crowns_df[crowns_df$Liana %in% c('0','3'), ]
+crowns_df$Liana[crowns_df$Liana == '3'] <- '1'
+crowns_df$Liana <- as.factor(crowns_df$Liana)
+type_crowns <- rep(c('crowns'), nrow(crowns_df))
+crowns_df$Type <- as.factor(type_crowns)
+
+
+blob_df <- as.data.frame(blob_filt_valid)
+blob_df$ Liana <- as.factor(label_blob_valid)
+type_blob <- rep(c('blob'), nrow(blob_df))
+blob_df$Type <- as.factor(type_blob)
+
+all_df <- rbind(crowns_df, blob_df)
+
+set.seed(123)
+all_df[,1:ncol(crowns_filt_valid)]<- scale(all_df[,1:ncol(crowns_filt_valid)])
+train_all <- all_df[all_df$Type == 'blob', ]
+test_all <- all_df[all_df$Type== 'crowns', ] 
+
+model_all <- lda(Liana ~ . - Type, data = train_all) # remove Type from predictive values
+predictions_all <- predict(model_all, test_all)
+lda_all_accuracy <- mean(predictions_all$class==test_all$Liana)
+lda_all_accuracy # 0.5471698
