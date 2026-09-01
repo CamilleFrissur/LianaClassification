@@ -22,6 +22,7 @@ library(uwot)
 library(FactoMineR)
 library(fpc)
 library(MASS)
+library(caret)
 
 ## Set working Directory ####
 setwd ("D:/DataCamille/")
@@ -979,6 +980,25 @@ predictions_crowns <- predict(model_crowns, test_crowns)
 lda_crowns_accuracy <- mean(predictions_crowns$class==test_crowns$Liana)
 lda_crowns_accuracy #0.6187719
 
+### Stratified folded cross-validation
+predictors <- crowns_df[ , -which(names(crowns_df) %in% c("Liana"))]
+
+ctrl_crowns <- trainControl(
+  method = "repeatedcv",
+  number = 10,       #folds
+  repeats = 5,        
+  classProbs = FALSE
+) # 0.6221891
+
+model_cv_crowns <- train(
+  x = predictors,
+  y = crowns_df$Liana,
+  method = "lda",
+  trControl = ctrl_crowns
+)
+
+cv_lda_crowns_accuracy <-model_cv_crowns$results$Accuracy
+
 ## Within MD dataset
 blob_df <- as.data.frame(blob_filt_valid)
 blob_df$ Liana <- as.factor(label_blob_valid)
@@ -993,6 +1013,25 @@ model_blob <- lda(Liana ~ ., data = train_blob)
 predictions_blob <- predict(model_blob, test_blob)
 lda_blob_accuracy <- mean(predictions_blob$class==test_blob$Liana)
 lda_blob_accuracy #0.8671278
+
+### Stratified folded cross-validation
+predictors <- blob_df[ , -which(names(blob_df) %in% c("Liana"))]
+
+ctrl_blob <- trainControl(
+  method = "repeatedcv",
+  number = 10,       #folds
+  repeats = 5,        
+  classProbs = FALSE
+) # 0.6221891
+
+model_cv_blob <- train(
+  x = predictors,
+  y = blob_df$Liana,
+  method = "lda",
+  trControl = ctrl_blob
+)
+
+cv_lda_blob_accuracy <-model_cv_blob$results$Accuracy
 
 ## Between MD and DP datasets
 crowns_df <- as.data.frame(crowns_filt_valid)
@@ -1020,3 +1059,5 @@ model_all <- lda(Liana ~ . - Type, data = train_all) # remove Type from predicti
 predictions_all <- predict(model_all, test_all)
 lda_all_accuracy <- mean(predictions_all$class==test_all$Liana)
 lda_all_accuracy # 0.5471698
+
+
