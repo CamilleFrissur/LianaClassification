@@ -984,11 +984,10 @@ lda_crowns_accuracy #0.6187719
 predictors <- crowns_df[ , -which(names(crowns_df) %in% c("Liana"))]
 
 ctrl_crowns <- trainControl(
-  method = "repeatedcv",
-  number = 10,       #folds
-  repeats = 5,        
-  classProbs = FALSE
-) # 0.6221891
+  method = "cv",
+  number = 5,        
+  savePredictions = "final"
+) 
 
 model_cv_crowns <- train(
   x = predictors,
@@ -997,7 +996,11 @@ model_cv_crowns <- train(
   trControl = ctrl_crowns
 )
 
-cv_lda_crowns_accuracy <-model_cv_crowns$results$Accuracy
+cv_lda_crowns_accuracy <-model_cv_crowns$results$Accuracy 
+cv_lda_crowns_accuracy 
+
+# Predicted liana proportion
+prop.table(table(model_cv_crowns$pred$pred))
 
 ## Within MD dataset
 blob_df <- as.data.frame(blob_filt_valid)
@@ -1018,11 +1021,10 @@ lda_blob_accuracy #0.8671278
 predictors <- blob_df[ , -which(names(blob_df) %in% c("Liana"))]
 
 ctrl_blob <- trainControl(
-  method = "repeatedcv",
-  number = 10,       #folds
-  repeats = 5,        
-  classProbs = FALSE
-) # 0.6221891
+  method = "cv",
+  number = 5,
+  savePredictions = "final"
+) 
 
 model_cv_blob <- train(
   x = predictors,
@@ -1032,6 +1034,10 @@ model_cv_blob <- train(
 )
 
 cv_lda_blob_accuracy <-model_cv_blob$results$Accuracy
+cv_lda_blob_accuracy 
+
+# Predicted liana proportion
+prop.table(table(model_cv_blob$pred$pred))
 
 ## Between MD and DP datasets
 crowns_df <- as.data.frame(crowns_filt_valid)
@@ -1052,12 +1058,18 @@ all_df <- rbind(crowns_df, blob_df)
 
 set.seed(123)
 all_df[,1:ncol(crowns_filt_valid)]<- scale(all_df[,1:ncol(crowns_filt_valid)])
-train_all <- all_df[all_df$Type == 'blob', ]
-test_all <- all_df[all_df$Type== 'crowns', ] 
+# train_all <- all_df[all_df$Type == 'blob', ]
+# test_all <- all_df[all_df$Type== 'crowns', ]
+test_all <- all_df[all_df$Type == 'blob', ]
+train_all <- all_df[all_df$Type== 'crowns', ]
 
 model_all <- lda(Liana ~ . - Type, data = train_all) # remove Type from predictive values
 predictions_all <- predict(model_all, test_all)
 lda_all_accuracy <- mean(predictions_all$class==test_all$Liana)
-lda_all_accuracy # 0.5471698
+lda_all_accuracy 
 
-
+# Predicted liana proportion
+liana_prop_pred <- sum(predictions_all$class== 1) / nrow(test_all)
+noliana_prop_pred <- sum(predictions_all$class== 0) / nrow(test_all)
+liana_prop_pred
+noliana_prop_pred
