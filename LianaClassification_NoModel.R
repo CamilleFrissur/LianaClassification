@@ -40,9 +40,10 @@ nlyr(r) #number of spectral bands
 
 ## Illu ####
 
-illu <- rast("HSI/mosaic_2016/nou_20160921_ilu_mosaic.bsq")
-# illu <- rast("HSI/mosaic_2023/mosaic/nou_20231025_l1c_mosaic.bsq")
-nlyr(illu)
+# illu <- rast("HSI/mosaic_2016/nou_20160921_ilu_mosaic.bsq")
+illu <- rast("HSI/mosaic_2023/mosaic/Nou2023_Vol2_NS_mosaic_ilu.bsq")
+illu <- illu$`Illumination Shadows`
+nlyr(illu) # should be 1 (Illumination shadows)
 # hist(illu, breaks = 100)
 # plot(illu)
 
@@ -58,9 +59,6 @@ area_blob <- crop(r, blob, mask=TRUE)
 # Taking into account the liana label
 label_blob <- rasterize(blob, area_blob, field = "Type")
 
-# Normalized data
-normalized_blob <- area_blob / mean(area_blob, na.rm = TRUE)
-
 
 ## Crowns from drone photos (DP) ####
 crowns <- vect("Couronnes/Crowns_Liana_2025_GP_TRUE.shp")
@@ -70,11 +68,16 @@ area_crowns <- crop(r, crowns, mask=TRUE)
 
 label_crowns <- rasterize(crowns, area_crowns, field = "LianaFullC")
 
-normalized_crowns <- area_crowns / mean(area_crowns, na.rm =TRUE)
+## Proportion of lianas before filtering #####################################
+table(values(label_crowns), useNA = "no")
+prop.table(table(values(label_crowns), useNA = "no"))
+
+table(values(label_blob), useNA = "no")
+prop.table(table(values(label_blob), useNA = "no"))
 
 # Filtering pixels ##########################################################
 
-## Cleaning extreme values ##
+## Cleaning extreme values / NA ##
 clean_extreme_values <- function(area, valid_range = c(0, 10000)) {
   
   area_matrix <- as.matrix(area)
@@ -95,7 +98,52 @@ clean_extreme_values <- function(area, valid_range = c(0, 10000)) {
   )
 }
 
+clean_extreme_values_toNA <- function(area, valid_range = c(0, 10000)) {
+  n_below <- global(area < valid_range[1], "sum", na.rm = TRUE)$sum
+  n_above <- global(area > valid_range[2], "sum", na.rm = TRUE)$sum
+  
+  cat("Number of pixel out of range:", (sum(n_below)+sum(n_above)), "\n")
 
+  area[area < valid_range[1]] <- NA
+  area[area > valid_range[2]] <- NA
+  return(area)
+}
+
+
+
+# min(area_crowns)
+# max(area_crowns)
+# sum(is.na(as.matrix(area_crowns)))
+area_crowns <- clean_extreme_values_toNA(area_crowns)
+# min(area_crowns)
+# max(area_crowns)
+# sum(is.na(as.matrix(area_crowns)))
+
+# min(area_blob)
+# max(area_blob)
+# sum(is.na(as.matrix(area_blob)))
+area_blob <- clean_extreme_values_toNA(area_blob)
+# min(area_blob)
+# max(area_blob)
+# sum(is.na(as.matrix(area_blob)))
+
+filter_good_bands <- function(area, max_na_pct_band = 0.95) {
+  area_matrix <- as.matrix(area)
+  na_pct_per_band <- colSums(is.na(area_matrix)) / nrow(area_matrix)
+  good_bands <- na_pct_per_band < max_na_pct_band
+  
+  cat("Bands kept :", sum(good_bands), "/", length(good_bands), "\n")
+  cat("Bands removed: (>=", max_na_pct_band*100, "% NA) :", sum(!good_bands), "\n")
+  
+  area[[good_bands]]   # sous-ensemble du raster, uniquement les bonnes bandes
+}
+
+area_crowns <- filter_good_bands(area_crowns, max_na_pct_band = 0.95)
+
+area_blob <- filter_good_bands(area_blob, max_na_pct_band = 0.95)
+
+normalized_crowns <- area_crowns / mean(area_crowns, na.rm = TRUE)
+normalized_blob   <- area_blob / mean(area_blob, na.rm = TRUE)
 
 ## Removing pixel based on illu ####
 # Only used with the 2016 data (illu file missing fo 2023)
@@ -104,12 +152,11 @@ med_illu <- global(illu[[1]], fun = median, na.rm = TRUE)$global
 perc90_illu <- global(illu[[1]], fun = quantile, probs = 0.9, na.rm = TRUE)$X90.
 
 filter_by_illu <- function(illu_raster, area, label, threshold){
-  
   illu_crop_area <- crop(illu_raster, area)
   n_before <- global(!is.na(area[[1]]), "sum")$sum
 
   illu_mask <- illu_crop_area > threshold
-
+  
   area_filtered <- mask(area, illu_mask, maskvalues = c(FALSE, NA))
   label_filtered <- mask(label, illu_mask, maskvalues = c(FALSE, NA))
 
@@ -140,13 +187,13 @@ extract_wavelength <- function(band_names) {
 
 filter_by_vnir <- function(area, label, vnir_range = c(400, 1100)){
   
-  area <- clean_extreme_values(area)$area_clean
+  # area_matrix <- as.matrix(area)
+  # na_per_band <- colSums(is.na(area_matrix))
+  # good_bands <- na_per_band < nrow(area_matrix)
+  # 
+  # wl <- extract_wavelength(names(area))[good_bands]
   
-  area_matrix <- as.matrix(area)
-  na_per_band <- colSums(is.na(area_matrix))
-  good_bands <- na_per_band < nrow(area_matrix)
-  
-  wl <- extract_wavelength(names(area))[good_bands]
+  wl <- extract_wavelength(names(area))
   
   vnir_idx <- which(wl >= vnir_range[1] & wl <= vnir_range[2])
   vnir_stack <- area[[vnir_idx]]
@@ -187,14 +234,13 @@ filter_by_vnir <- function(area, label, vnir_range = c(400, 1100)){
 
 filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 
-  area <- clean_extreme_values(area)$area_clean
+  # area_matrix <- as.matrix(area)
+  # na_per_band <- colSums(is.na(area_matrix))
+  # good_bands <- na_per_band < nrow(area_matrix)
+  # 
+  # wl <- extract_wavelength(names(area))[good_bands]
   
-
-  area_matrix <- as.matrix(area)
-  na_per_band <- colSums(is.na(area_matrix))
-  good_bands <- na_per_band < nrow(area_matrix)
-
-  wl <- extract_wavelength(names(area))[good_bands]
+  wl <- extract_wavelength(names(area))
   
   nir_idx <- which(wl >= nir_range[1] & wl <= nir_range[2])
 
@@ -226,7 +272,6 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 }
 
 
-
 ## Applying/choosing the filter #########################################################
 # Comment and/or uncomment to choose the right filter
 
@@ -242,36 +287,46 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 # illu_crop_blob <- illu_blob_out$area_crop
 
 ### VNIR ####
-# spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
-# spec_crowns_filt_VNIR$threshold_qual
-# spec_crowns_filt_VNIR$threshold
-# area_crowns_filt <- spec_crowns_filt_VNIR$area_filt
-# label_crowns_filt<- spec_crowns_filt_VNIR$label_filt
-# illu_crop_crowns <- area_crowns_filt *0
-# 
-# spec_blob_filt_VNIR   <- filter_by_vnir(area_blob, label_blob)
-# spec_blob_filt_VNIR$threshold_qual
-# spec_blob_filt_VNIR$threshold
-# area_blob_filt <- spec_blob_filt_VNIR$area_filt
-# label_blob_filt <- spec_blob_filt_VNIR$label_filt
-# illu_crop_blob <- area_blob_filt * 0
+spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
+spec_crowns_filt_VNIR$threshold_qual
+spec_crowns_filt_VNIR$threshold
+area_crowns_filt <- spec_crowns_filt_VNIR$area_filt
+label_crowns_filt<- spec_crowns_filt_VNIR$label_filt
+illu_crop_crowns <- area_crowns_filt *0
+
+spec_blob_filt_VNIR   <- filter_by_vnir(area_blob, label_blob)
+spec_blob_filt_VNIR$threshold_qual
+spec_blob_filt_VNIR$threshold
+area_blob_filt <- spec_blob_filt_VNIR$area_filt
+label_blob_filt <- spec_blob_filt_VNIR$label_filt
+illu_crop_blob <- area_blob_filt * 0
 
 ### NIR ####
-spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
-spec_crowns_filt_NIR$threshold_qual
-spec_crowns_filt_NIR$threshold_value
-area_crowns_filt <- spec_crowns_filt_NIR$area_filt
-label_crowns_filt<- spec_crowns_filt_NIR$label_filt
-spec_crowns_filt_NIR$threshold_qual  # % remaining pixels
-illu_crop_crowns <-area_crowns_filt *0
+# spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
+# spec_crowns_filt_NIR$threshold_qual
+# spec_crowns_filt_NIR$threshold_value
+# area_crowns_filt <- spec_crowns_filt_NIR$area_filt
+# label_crowns_filt<- spec_crowns_filt_NIR$label_filt
+# spec_crowns_filt_NIR$threshold_qual  # % remaining pixels
+# illu_crop_crowns <-area_crowns_filt *0
+# 
+# spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
+# spec_blob_filt_NIR$threshold_qual
+# spec_blob_filt_NIR$threshold_value
+# area_blob_filt <- spec_blob_filt_NIR$area_filt
+# label_blob_filt <- spec_blob_filt_NIR$label_filt
+# spec_blob_filt_NIR$threshold_qual
+# illu_crop_blob <- area_blob_filt * 0
 
-spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
-spec_blob_filt_NIR$threshold_qual
-spec_blob_filt_NIR$threshold_value
-area_blob_filt <- spec_blob_filt_NIR$area_filt
-label_blob_filt <- spec_blob_filt_NIR$label_filt
-spec_blob_filt_NIR$threshold_qual
-illu_crop_blob <- area_blob_filt * 0
+## Proportion of lianas after filtering ######################################
+table(values(label_crowns_filt), useNA = "no")
+prop.table(table(values(label_crowns_filt), useNA = "no"))
+
+table(values(label_blob_filt), useNA = "no")
+prop.table(table(values(label_blob_filt), useNA = "no"))
+
+## Correlation (Chi2) between filters ##########################################
+# TO DO !!
 
 # Dimensionality reduction and data visualization ###############################
 
@@ -281,18 +336,19 @@ data_prep_per_pixel <- function(area_filtered, label_filtered, illu_crop_area, m
   area_matrix <- as.matrix(area_filtered)
   label_matrix <- as.matrix (label_filtered)[,1]
   
-  na_per_band <- colSums(is.na(area_matrix))
-  good_bands <- na_per_band < nrow(area_matrix)
+  # na_per_band <- colSums(is.na(area_matrix))
+  # good_bands <- na_per_band < nrow(area_matrix)
   # sum(good_bands)
   
   # na_pct_per_pixel <- rowSums(is.na(area_matrix[, good_bands])) / sum(good_bands)
-  # no_na_row <- na_pct_per_pixel <= max_na_pct   
+  # no_na_row <- na_pct_per_pixel <= max_na_pct
   # valid_idx <- which(!is.na(label_matrix) & no_na_row)
   # valid_idx <- which(!is.na(label_matrix) & complete.cases(area_matrix[, good_bands]))
-  valid_idx <- which(!is.na(label_matrix) & rowSums(is.na(area_matrix[, good_bands])) == 0)
-  # length(valid_idx)
+ 
+  valid_idx <- which(!is.na(label_matrix) & rowSums(is.na(area_matrix)) == 0)
+  # length(valid_idx))
 
-  area_valid <- area_matrix[valid_idx, good_bands, drop =FALSE]
+  area_valid <- area_matrix[valid_idx, , drop = FALSE]
   labels_valid <- label_matrix[valid_idx]
   # dim(crowns_filt_valid)
   # length(labels_valid)
@@ -310,8 +366,7 @@ data_prep_per_pixel <- function(area_filtered, label_filtered, illu_crop_area, m
   output_list <- list(
     matrix = area_valid,
     labels = labels_valid,
-    illu = illu_valid,
-    goodbands = good_bands)
+    illu = illu_valid)
   
   return(output_list)
 } 
@@ -374,13 +429,112 @@ MD_per_poly <- data_prep_per_poly(area_blob_filt, blob, "Type")
 blob_poly_valid <- MD_per_poly$matrix
 label_blob_poly_valid <- MD_per_poly$label
 
+## Proportion of lianas after data_prep #####################################
+table(label_crowns_valid)
+prop.table(table(label_crowns_valid))
+
+table(label_blob_valid)
+prop.table(table(label_blob_valid))
+
+## PCA #######################################################################
+
+## DP per pixel
+pca_out_crowns <- PCA(crowns_filt_valid, scale.unit = TRUE, graph = FALSE)
+var_exp_crowns <- pca_out_crowns$eig[1:2, "percentage of variance"]
+
+pca_plot_crowns <- data.frame(
+  x = pca_out_crowns$ind$coord[,1],
+  y = pca_out_crowns$ind$coord[,2],
+  LianaFullCrown = as.factor(label_crowns_valid)
+)
+
+ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
+  geom_point()+
+  scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
+                     labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
+  labs(title= "PCA of the HSI values of the drone photos dataset (VNIR filter)",
+       x = paste0("Dim 1 (", round(var_exp_crowns[1], 1), "%)"),
+       y = paste0("Dim 2 (", round(var_exp_crowns[2], 1), "%)"))
+
+# Only useful if the illumination filter was used
+# pca_plot_crowns$illu <- illu_crowns_valid
+# ggplot(pca_plot_crowns, aes(x = x, y = y, color = illu)) +
+#   geom_point() +
+#   scale_color_viridis_c(name = "Illumination") +
+#   labs(title = "PCA of the HSI values of the DP dataset colored by illumination")
+
+## For DP per polygon 
+pca_out_crowns_poly <- PCA(crowns_poly_valid, scale.unit = TRUE, graph = FALSE)
+var_exp_crowns_poly <- pca_out_crowns_poly$eig[1:2, "percentage of variance"]
+
+pca_plot_crowns_poly <- data.frame(
+  x = pca_out_crowns_poly$ind$coord[,1],
+  y = pca_out_crowns_poly$ind$coord[,2],
+  LianaFullCrown = as.factor(label_crowns_poly_valid)
+)
+
+ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
+  geom_point()+
+  scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
+  labs(title= "PCA of the mean spectrum per polygon of the DP dataset (VNIR filter)",
+       x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
+       y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))
+
+## For MD per pixel
+pca_out_blob <- PCA(blob_filt_valid, scale.unit = TRUE, graph = FALSE)
+var_exp_blob <- pca_out_blob$eig[1:2, "percentage of variance"]
+
+pca_plot_blob <- data.frame(
+  x = pca_out_blob$ind$coord[,1],
+  y = pca_out_blob$ind$coord[,2],
+  Type = as.factor(label_blob_valid)
+)
+
+ggplot(pca_plot_blob, aes(x = x, y = y, color = Type)) +
+  geom_point()+
+  scale_color_manual(
+    name = "Presence of liana",
+    values = c("0" = "olivedrab3", "1" = "deeppink2"),
+    labels = c("0" = "No liana", "1" = "Liana")
+  )+
+  labs(title= "PCA of the HSI values of the MD dataset (VNIR filter)",
+       x = paste0("Dim 1 (", round(var_exp_blob[1], 1), "%)"),
+       y = paste0("Dim 2 (", round(var_exp_blob[2], 1), "%)"))
+
+# Only with illu filter
+# pca_plot_blob$illu <- illu_blob_valid
+# ggplot(pca_plot_blob, aes(x = x, y = y, color = illu)) +
+#   geom_point() +
+#   scale_color_viridis_c(name = "Illumination") +
+#   labs(title = "PCA of the HSI values of the MD dataset colored by illumination")
+
+## For MD per polygon 
+pca_out_blob_poly <- PCA(blob_poly_valid, scale.unit = TRUE, graph = FALSE)
+var_exp_blob_poly <- pca_out_blob_poly$eig[1:2, "percentage of variance"]
+
+pca_plot_blob_poly <- data.frame(
+  x = pca_out_blob_poly$ind$coord[,1],
+  y = pca_out_blob_poly$ind$coord[,2],
+  Type = as.factor(label_blob_poly_valid)
+)
+
+ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
+  geom_point() +
+  scale_color_manual(
+    name = "Presence of liana",
+    values = c("0" = "olivedrab3", "1" = "deeppink2"),
+    labels = c("0" = "No liana", "1" = "Liana")
+  )+
+  labs(title= "PCA of the mean spectrum per polygon of the MD dataset (VNIR filter)",
+       x = paste0("Dim 1 (", round(var_exp_blob_poly[1], 1), "%)"),
+       y = paste0("Dim 2 (", round(var_exp_blob_poly[2], 1), "%)"))
 
 
 ## t-SNE #######################################################################
 
 ## DP per pixel
-# perplexity_crown = (nrow(crowns_filt_valid)-1)/3 - 1
-# perplexity_crown
+perplexity_crown = (nrow(crowns_filt_valid)-1)/3
+perplexity_crown
 set.seed(2)
 tsne_out_crowns <- Rtsne(crowns_filt_valid, check_duplicates = FALSE )
 
@@ -390,15 +544,15 @@ tsne_plot_crowns <- data.frame(
   LianaFullCrown = as.factor(label_crowns_valid)
 )
 
-tsne_plot_crowns$illu <- illu_crowns_valid
 
 ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "tSNE of the HSI values of the drone photos dataset (NIR filter)" )
+  labs(title= "tSNE of the HSI values of the drone photos dataset (VNIR filter)" )
 
 # Only useful if the illumination filter was used
+# tsne_plot_crowns$illu <- illu_crowns_valid
 # ggplot(tsne_plot_crowns, aes(x = x, y = y, color = illu)) +
 #   geom_point() +
 #   scale_color_viridis_c(name = "Illumination") +
@@ -419,7 +573,7 @@ ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+ #(size = 3)
   scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (NIR filter)" )
+  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (VNIR filter)" )
 
 ## For MD per pixel
 # perplexity_blob = (nrow(blob_filt_valid)-1)/3 - 1
@@ -433,9 +587,6 @@ tsne_plot_blob <- data.frame(
   Type = as.factor(label_blob_valid)
 )
 
-tsne_plot_blob$illu <- illu_blob_valid
-
-
 ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
@@ -443,9 +594,10 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "tSNE of the HSI values of the MD dataset (NIR filter)" )
+  labs(title= "tSNE of the HSI values of the MD dataset (VNIR filter)" )
 
 # Only with illu filter
+# tsne_plot_blob$illu <- illu_blob_valid
 # ggplot(tsne_plot_blob, aes(x = x, y = y, color = illu)) +
 #   geom_point() +
 #   scale_color_viridis_c(name = "Illumination") +
@@ -470,7 +622,7 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (NIR filter)" )
+  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (VNIR filter)" )
 
 
 ## UMAP #########################################################################
@@ -485,7 +637,6 @@ umap_plot_crowns <- data.frame(
   LianaFullCrown = as.factor(label_crowns_valid)
 )
 
-# umap_plot_crowns$illu <- illu_crowns_valid
   
   
 ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
@@ -493,13 +644,14 @@ ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "UMAP of the HSI values of the DP dataset (NIR filter)" )
+  labs(title= "UMAP of the HSI values of the DP dataset (VNIR filter)" )
 
 # Only with illu filter
+# umap_plot_crowns$illu <- illu_crowns_valid
 # ggplot(umap_plot_crowns, aes(x = x, y = y, color = illu)) +
-#   geom_point() +
-#   scale_color_viridis_c(name = "Illumination") +
-#   labs(title = "UMAP of the HSI values of the DP dataset colored by illumination")
+  # geom_point() +
+  # scale_color_viridis_c(name = "Illumination") +
+  # labs(title = "UMAP of the HSI values of the DP dataset colored by illumination")
 
 #For DP per polygon
 umap_out_crowns_poly <- umap2( seed = 2, crowns_poly_valid)
@@ -512,7 +664,7 @@ umap_plot_crowns_poly <- data.frame(
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
-  labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (NIR filter)" )
+  labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (VNIR filter)" )
 
 
 #For MD per pixel
@@ -524,7 +676,6 @@ umap_plot_blob <- data.frame(
   Type = as.factor(label_blob_valid)
 )
 
-umap_plot_blob$illu <- illu_blob_valid
 
 ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
@@ -533,8 +684,10 @@ ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the HSI values of the MD dataset (NIR filter)" )
+  labs(title= "UMAP of the HSI values of the MD dataset (VNIR filter)" )
 
+# Only with illu filter
+# umap_plot_blob$illu <- illu_blob_valid
 # ggplot(umap_plot_blob, aes(x = x, y = y, color = illu)) +
 #   geom_point() +
 #   scale_color_viridis_c(name = "Illumination") +
@@ -556,7 +709,7 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (NIR filter)" )
+  labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (VNIR filter)" )
 
 # # Bhattacharyya distance ###################################################
 # 
@@ -955,7 +1108,7 @@ label_config <- data.frame(
 ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
   geom_line(linewidth = 1) +
   labs(x = "Wavelength (nm)", y = "Mean reflectance",
-       title = "Mean spectrum by dataset group (NIR filter)", color = "Type") +
+       title = "Mean spectrum by dataset group (VNIR filter)", color = "Type") +
   scale_color_manual(
     values = setNames(label_config$color, label_config$group),
     labels = setNames(label_config$display_name, label_config$group))
@@ -1058,10 +1211,10 @@ all_df <- rbind(crowns_df, blob_df)
 
 set.seed(123)
 all_df[,1:ncol(crowns_filt_valid)]<- scale(all_df[,1:ncol(crowns_filt_valid)])
-# train_all <- all_df[all_df$Type == 'blob', ]
-# test_all <- all_df[all_df$Type== 'crowns', ]
-test_all <- all_df[all_df$Type == 'blob', ]
-train_all <- all_df[all_df$Type== 'crowns', ]
+train_all <- all_df[all_df$Type == 'blob', ]
+test_all <- all_df[all_df$Type== 'crowns', ]
+# test_all <- all_df[all_df$Type == 'blob', ]
+# train_all <- all_df[all_df$Type== 'crowns', ]
 
 model_all <- lda(Liana ~ . - Type, data = train_all) # remove Type from predictive values
 predictions_all <- predict(model_all, test_all)
