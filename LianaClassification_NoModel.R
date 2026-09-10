@@ -142,9 +142,6 @@ area_crowns <- filter_good_bands(area_crowns, max_na_pct_band = 0.95)
 
 area_blob <- filter_good_bands(area_blob, max_na_pct_band = 0.95)
 
-normalized_crowns <- area_crowns / mean(area_crowns, na.rm = TRUE)
-normalized_blob   <- area_blob / mean(area_blob, na.rm = TRUE)
-
 ## Removing pixel based on illu ####
 # Only used with the 2016 data (illu file missing fo 2023)
 
@@ -275,7 +272,7 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 ## Applying/choosing the filter #########################################################
 # Comment and/or uncomment to choose the right filter
 
-### Illu ####
+### Illu (median) ####
 # illu_crowns_out <- filter_by_illu(illu, normalized_crowns, label_crowns, med_illu)
 # area_crowns_filt <- illu_crowns_out$area_filt
 # label_crowns_filt <- illu_crowns_out$label_filt
@@ -286,37 +283,41 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 # label_blob_filt <- illu_blob_out$label_filt
 # illu_crop_blob <- illu_blob_out$area_crop
 
-### VNIR ####
-spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
-spec_crowns_filt_VNIR$threshold_qual
-spec_crowns_filt_VNIR$threshold
-area_crowns_filt <- spec_crowns_filt_VNIR$area_filt
-label_crowns_filt<- spec_crowns_filt_VNIR$label_filt
-illu_crop_crowns <- area_crowns_filt *0
+### VNIR (mean) ####
+# spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
+# spec_crowns_filt_VNIR$threshold_qual
+# spec_crowns_filt_VNIR$threshold
+# area_crowns_filt <- spec_crowns_filt_VNIR$area_filt
+# label_crowns_filt<- spec_crowns_filt_VNIR$label_filt
+# illu_crop_crowns <- area_crowns_filt *0
+# 
+# spec_blob_filt_VNIR   <- filter_by_vnir(area_blob, label_blob)
+# spec_blob_filt_VNIR$threshold_qual
+# spec_blob_filt_VNIR$threshold
+# area_blob_filt <- spec_blob_filt_VNIR$area_filt
+# label_blob_filt <- spec_blob_filt_VNIR$label_filt
+# illu_crop_blob <- area_blob_filt * 0
 
-spec_blob_filt_VNIR   <- filter_by_vnir(area_blob, label_blob)
-spec_blob_filt_VNIR$threshold_qual
-spec_blob_filt_VNIR$threshold
-area_blob_filt <- spec_blob_filt_VNIR$area_filt
-label_blob_filt <- spec_blob_filt_VNIR$label_filt
+### NIR (20%) ####
+spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
+spec_crowns_filt_NIR$threshold_qual
+spec_crowns_filt_NIR$threshold_value
+area_crowns_filt <- spec_crowns_filt_NIR$area_filt
+label_crowns_filt<- spec_crowns_filt_NIR$label_filt
+spec_crowns_filt_NIR$threshold_qual  # % remaining pixels
+illu_crop_crowns <-area_crowns_filt *0
+
+spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
+spec_blob_filt_NIR$threshold_qual
+spec_blob_filt_NIR$threshold_value
+area_blob_filt <- spec_blob_filt_NIR$area_filt
+label_blob_filt <- spec_blob_filt_NIR$label_filt
+spec_blob_filt_NIR$threshold_qual
 illu_crop_blob <- area_blob_filt * 0
 
-### NIR ####
-# spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
-# spec_crowns_filt_NIR$threshold_qual
-# spec_crowns_filt_NIR$threshold_value
-# area_crowns_filt <- spec_crowns_filt_NIR$area_filt
-# label_crowns_filt<- spec_crowns_filt_NIR$label_filt
-# spec_crowns_filt_NIR$threshold_qual  # % remaining pixels
-# illu_crop_crowns <-area_crowns_filt *0
-# 
-# spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
-# spec_blob_filt_NIR$threshold_qual
-# spec_blob_filt_NIR$threshold_value
-# area_blob_filt <- spec_blob_filt_NIR$area_filt
-# label_blob_filt <- spec_blob_filt_NIR$label_filt
-# spec_blob_filt_NIR$threshold_qual
-# illu_crop_blob <- area_blob_filt * 0
+## Normalizatopn ####
+area_crowns_filt   <- area_crowns_filt / mean(area_crowns_filt, na.rm = TRUE)
+area_blob_filt <- area_blob_filt / mean(area_blob_filt, na.rm = TRUE)
 
 ## Proportion of lianas after filtering ######################################
 table(values(label_crowns_filt), useNA = "no")
@@ -436,6 +437,12 @@ prop.table(table(label_crowns_valid))
 table(label_blob_valid)
 prop.table(table(label_blob_valid))
 
+table(label_crowns_poly_valid)
+prop.table(table(label_crowns_poly_valid))
+
+table(label_blob_poly_valid)
+prop.table(table(label_blob_poly_valid))
+
 ## PCA #######################################################################
 
 ## DP per pixel
@@ -452,7 +459,7 @@ ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "PCA of the HSI values of the drone photos dataset (VNIR filter)",
+  labs(title= "PCA of the HSI values of the drone photos dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns[2], 1), "%)"))
 
@@ -476,7 +483,7 @@ pca_plot_crowns_poly <- data.frame(
 ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
-  labs(title= "PCA of the mean spectrum per polygon of the DP dataset (VNIR filter)",
+  labs(title= "PCA of the mean spectrum per polygon of the DP dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))
 
@@ -497,7 +504,7 @@ ggplot(pca_plot_blob, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA of the HSI values of the MD dataset (VNIR filter)",
+  labs(title= "PCA of the HSI values of the MD dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob[2], 1), "%)"))
 
@@ -525,7 +532,7 @@ ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA of the mean spectrum per polygon of the MD dataset (VNIR filter)",
+  labs(title= "PCA of the mean spectrum per polygon of the MD dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob_poly[2], 1), "%)"))
 
@@ -549,7 +556,7 @@ ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "tSNE of the HSI values of the drone photos dataset (VNIR filter)" )
+  labs(title= "tSNE of the HSI values of the drone photos dataset (NIR filter)" )
 
 # Only useful if the illumination filter was used
 # tsne_plot_crowns$illu <- illu_crowns_valid
@@ -573,7 +580,7 @@ ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+ #(size = 3)
   scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (VNIR filter)" )
+  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (NIR filter)" )
 
 ## For MD per pixel
 # perplexity_blob = (nrow(blob_filt_valid)-1)/3 - 1
@@ -594,7 +601,7 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "tSNE of the HSI values of the MD dataset (VNIR filter)" )
+  labs(title= "tSNE of the HSI values of the MD dataset (NIR filter)" )
 
 # Only with illu filter
 # tsne_plot_blob$illu <- illu_blob_valid
@@ -622,7 +629,7 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (VNIR filter)" )
+  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (NIR filter)" )
 
 
 ## UMAP #########################################################################
@@ -644,7 +651,7 @@ ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "UMAP of the HSI values of the DP dataset (VNIR filter)" )
+  labs(title= "UMAP of the HSI values of the DP dataset (NIR filter)" )
 
 # Only with illu filter
 # umap_plot_crowns$illu <- illu_crowns_valid
@@ -664,7 +671,7 @@ umap_plot_crowns_poly <- data.frame(
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
-  labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (VNIR filter)" )
+  labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (NIR filter)" )
 
 
 #For MD per pixel
@@ -684,7 +691,7 @@ ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the HSI values of the MD dataset (VNIR filter)" )
+  labs(title= "UMAP of the HSI values of the MD dataset (NIR filter)" )
 
 # Only with illu filter
 # umap_plot_blob$illu <- illu_blob_valid
@@ -709,7 +716,7 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
     values = c("0" = "olivedrab3", "1" = "deeppink2"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (VNIR filter)" )
+  labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (NIR filter)" )
 
 # # Bhattacharyya distance ###################################################
 # 
@@ -1108,7 +1115,7 @@ label_config <- data.frame(
 ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
   geom_line(linewidth = 1) +
   labs(x = "Wavelength (nm)", y = "Mean reflectance",
-       title = "Mean spectrum by dataset group (VNIR filter)", color = "Type") +
+       title = "Mean spectrum by dataset group (NIR filter)", color = "Type") +
   scale_color_manual(
     values = setNames(label_config$color, label_config$group),
     labels = setNames(label_config$display_name, label_config$group))
