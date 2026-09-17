@@ -23,10 +23,13 @@ library(FactoMineR)
 library(fpc)
 library(MASS)
 library(caret)
+library(gridExtra)
 
 ## Set working Directory ####
 setwd ("D:/DataCamille/")
 
+load('Classification_R/LianaClassification/myEnvironment.RData')
+#ls()
 
 # Uploading data and cropping ##########################################
 
@@ -138,9 +141,9 @@ filter_good_bands <- function(area, max_na_pct_band = 0.95) {
   area[[good_bands]]   # sous-ensemble du raster, uniquement les bonnes bandes
 }
 
-area_crowns <- filter_good_bands(area_crowns, max_na_pct_band = 0.95)
+area_crowns <- filter_good_bands(area_crowns, max_na_pct_band = 0.99)
 
-area_blob <- filter_good_bands(area_blob, max_na_pct_band = 0.95)
+area_blob <- filter_good_bands(area_blob, max_na_pct_band = 0.99)
 
 ## Removing pixel based on illu ####
 # Only used with the 2016 data (illu file missing fo 2023)
@@ -367,7 +370,8 @@ data_prep_per_pixel <- function(area_filtered, label_filtered, illu_crop_area, m
   output_list <- list(
     matrix = area_valid,
     labels = labels_valid,
-    illu = illu_valid)
+    illu = illu_valid,
+    valid_idx = valid_idx)
   
   return(output_list)
 } 
@@ -1233,3 +1237,195 @@ liana_prop_pred <- sum(predictions_all$class== 1) / nrow(test_all)
 noliana_prop_pred <- sum(predictions_all$class== 0) / nrow(test_all)
 liana_prop_pred
 noliana_prop_pred
+
+## LDA trained on pure labels to check % of liana predicted ##################
+crowns_df_pure <- as.data.frame(crowns_filt_valid)
+crowns_df_pure$LianaOriginal <- as.factor(label_crowns_valid)
+
+crowns_df_pure$Liana <- as.character(label_crowns_valid)
+crowns_df_pure$Liana[crowns_df_pure$Liana %in% c("0", "1")] <- "0"
+crowns_df_pure$Liana[crowns_df_pure$Liana %in% c("2", "3")] <- "1"
+crowns_df_pure$Liana <- as.factor(crowns_df_pure$Liana)
+
+crowns_df_pure$Type <- factor("crowns", levels = c("crowns", "blob"))
+crowns$poly_id <- seq_len(nrow(crowns))
+poly_id_r <- rasterize(crowns, area_crowns_filt, field = "poly_id")
+poly_id_m <- as.matrix(poly_id_r)[, 1]
+poly_id_valid <- poly_id_m[DP_per_pixel$valid_idx]
+crowns_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
+
+blob_df_pure <- as.data.frame(blob_filt_valid)
+blob_df_pure$Liana <- as.factor(label_blob_valid)
+blob_df_pure$Type <- factor("blob", levels = c("crowns", "blob"))
+blob_df_pure$LianaOriginal <- NA
+blob_df_pure$poly_id <- 0
+
+common_cols <- intersect(names(crowns_df_pure), names(blob_df_pure))
+crowns_df_pure <- crowns_df_pure[, common_cols]
+blob_df_pure <- blob_df_pure[, common_cols]
+
+all_df <- rbind(crowns_df_pure, blob_df_pure)
+
+### Trained on blob / Tested on crowns ####
+set.seed(123)
+band_cols <- sapply(all_df, is.numeric)
+band_cols <- names(all_df)[band_cols]
+
+all_df[, band_cols] <- scale(all_df[, band_cols])
+
+train_all_pure <- all_df[all_df$Type == "blob", ]
+test_all_pure <- all_df[all_df$Type == "crowns", ]
+
+X_train <- train_all_pure[, band_cols]
+constant_cols <- sapply(X_train, function(x) length(unique(x)) == 1)
+X_train_filtered <- X_train[, !constant_cols, drop = FALSE]
+band_cols_filtered <- names(X_train_filtered)
+
+if (ncol(X_train_filtered) > 1) {
+  cor_matrix <- cor(X_train_filtered, use = "complete.obs")
+  high_cor_cols <- names(X_train_filtered)[
+    sapply(1:ncol(X_train_filtered), function(i) any(abs(cor_matrix[i, ]) > 0.99 & cor_matrix[i, ] != 1))
+  ]
+  band_cols_filtered <- setdiff(band_cols_filtered, high_cor_cols)
+  X_train_filtered <- X_train_filtered[, band_cols_filtered, drop = FALSE]
+}
+
+train_data_blob <- data.frame(Liana = train_all_pure$Liana, X_train_filtered)
+model_blob_to_crown <- lda(Liana ~ ., data = train_data_blob, tol = 1e-8)
+
+X_test <- test_all_pure[, band_cols]
+X_test_filtered <- X_test[, !constant_cols, drop = FALSE]
+X_test_final <- X_test_filtered[, band_cols_filtered, drop = FALSE]
+test_data_crown <- data.frame(Liana = test_all_pure$Liana, X_test_final)
+
+predictions_blob_to_crown <- predict(model_blob_to_crown, test_data_crown)
+test_all_pure$predicted_blob <- predictions_blob_to_crown$class
+test_all_pure$correct_blob <- test_all_pure$predicted_blob == test_all_pure$Liana
+
+accuracy_blob_to_crown <- mean(test_all_pure$correct_blob)
+cat("Mean accuracy per crown:", round(accuracy_blob_to_crown, 3), "\n")
+
+accuracy_per_crown_blob <- aggregate(correct_blob ~ poly_id + LianaOriginal,
+                                     data = test_all_pure,
+                                     FUN = mean)
+names(accuracy_per_crown_blob)[3] <- "accuracy"
+
+p1 <- ggplot(accuracy_per_crown_blob, aes(x = LianaOriginal, y = accuracy, fill = LianaOriginal)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.15, alpha = 0.5) +
+  scale_fill_manual(values = c("0" = "olivedrab3", "1" = "deeppink3",
+                               "2" = "purple4", "3" = "orange3")) +
+  labs(x = "Liana class in drone photos (DP)", y = "Mean accuracy per crown",
+       title = "LDA trained on MD, tested on DP") +
+  theme(legend.position = "none")
+p1
+
+### StratifiedGroupKFold ####
+
+stratified_group_kfold <- function(data, group_col, stratify_col, k = 5, seed = 123) {
+  set.seed(seed)
+  group_classes <- sapply(unique(data[[group_col]]), function(group) {
+    group_data <- data[data[[group_col]] == group, ]
+    names(which.max(table(group_data[[stratify_col]])))
+  })
+  groups_df <- data.frame(group = unique(data[[group_col]]), class = group_classes)
+  folds <- vector("list", k)
+  for (class in unique(groups_df$class)) {
+    class_groups <- groups_df$group[groups_df$class == class]
+    fold_assignments <- sample(rep(1:k, length.out = length(class_groups)))
+    for (i in 1:k) folds[[i]] <- c(folds[[i]], class_groups[fold_assignments == i])
+  }
+  lapply(folds, function(groups) which(data[[group_col]] %in% groups))
+}
+
+set.seed(123)
+folds <- stratified_group_kfold(crowns_df_pure, "poly_id", "Liana", k = 5)
+
+cv_results <- list()
+for (i in 1:length(folds)) {  # <-- Utilise length(folds) au lieu de folds$n
+  # Extraire les indices train/test depuis la liste
+  test_indices <- folds[[i]]  # Indices du fold i (test)
+  train_indices <- setdiff(1:nrow(crowns_df_pure), test_indices)  # Indices complémentaires (train)
+  
+  # Données train/test
+  train_data <- crowns_df_pure[train_indices, ]
+  test_data  <- crowns_df_pure[test_indices, ]
+  
+  # Prétraitement (standardisation sur train uniquement)
+  band_cols_cv <- sapply(train_data, is.numeric)
+  band_cols_cv <- band_cols_cv & names(train_data) != "poly_id"
+  
+  train_means <- colMeans(train_data[, band_cols_cv], na.rm = TRUE)
+  train_sds  <- apply(train_data[, band_cols_cv], 2, sd, na.rm = TRUE)
+  
+  train_data[, band_cols_cv] <- scale(train_data[, band_cols_cv], center = train_means, scale = train_sds)
+  test_data[, band_cols_cv]  <- scale(test_data[, band_cols_cv], center = train_means, scale = train_sds)
+  
+  # Filtrage des colonnes constantes/colinéaires (SUR TRAIN UNIQUEMENT)
+  X_train_cv <- train_data[, band_cols_cv]
+  constant_cols_cv <- sapply(X_train_cv, function(x) length(unique(x)) == 1)
+  X_train_filtered_cv <- X_train_cv[, !constant_cols_cv, drop = FALSE]
+  
+  if (ncol(X_train_filtered_cv) > 1) {
+    cor_matrix_cv <- cor(X_train_filtered_cv, use = "complete.obs")
+    high_cor_cols_cv <- names(X_train_filtered_cv)[
+      sapply(1:ncol(X_train_filtered_cv), function(j) any(abs(cor_matrix_cv[j, ]) > 0.99 & cor_matrix_cv[j, ] != 1))
+    ]
+    X_train_filtered_cv <- X_train_filtered_cv[, !names(X_train_filtered_cv) %in% high_cor_cols_cv, drop = FALSE]
+  }
+  
+  # Modèle LDA
+  train_lda_cv <- data.frame(Liana = train_data$Liana, X_train_filtered_cv)
+  model_cv <- lda(Liana ~ ., data = train_lda_cv, tol = 1e-8)
+  
+  # Prédictions
+  X_test_cv <- test_data[, band_cols_cv]
+  X_test_filtered_cv <- X_test_cv[, !constant_cols_cv, drop = FALSE]
+  X_test_filtered_cv <- X_test_filtered_cv[, names(X_train_filtered_cv), drop = FALSE]
+  
+  test_lda_cv <- data.frame(Liana = test_data$Liana, X_test_filtered_cv)
+  predictions_cv <- predict(model_cv, test_lda_cv)
+  
+  # Stocke les résultats
+  cv_results[[i]] <- list(
+    fold = i,
+    accuracy = mean(predictions_cv$class == test_data$Liana),
+    test_data = test_data,
+    predictions = predictions_cv,
+    train_indices = train_indices,
+    test_indices = test_indices
+  )
+}
+
+cv_accuracies <- sapply(cv_results, function(x) x$accuracy)
+cat("Accuracies per fold:", paste(round(cv_accuracies, 3), collapse = ", "), "\n")
+cat("Mean accuracy CV:", round(mean(cv_accuracies), 3), "\n")
+
+all_cv_results <- do.call(rbind, lapply(cv_results, function(x) {
+  data.frame(
+    fold = x$fold,
+    poly_id = x$test_data$poly_id,
+    LianaOriginal = x$test_data$LianaOriginal,
+    correct = x$predictions$class == x$test_data$Liana,
+    predicted = x$predictions$class
+  )
+}))
+
+accuracy_per_crown_cv <- aggregate(correct ~ poly_id + LianaOriginal,
+                                   data = all_cv_results,
+                                   FUN = mean)
+names(accuracy_per_crown_cv)[3] <- "accuracy"
+
+p2 <- ggplot(accuracy_per_crown_cv, aes(x = LianaOriginal, y = accuracy, fill = LianaOriginal)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.15, alpha = 0.5) +
+  scale_fill_manual(values = c("0" = "olivedrab3", "1" = "deeppink3",
+                               "2" = "purple4", "3" = "orange3")) +
+  labs(x = "Liana class in drone photos (DP)", y = "Mean accuracy per crown",
+       title = "Cross validation (StratifiedGroupKFold) on DP") +
+  theme(legend.position = "none")
+p2
+
+grid.arrange(p1, p2, ncol = 2)
+
+save.image(file = file.path("Classification_R", "LianaClassification", "myEnvironment.RData"))
