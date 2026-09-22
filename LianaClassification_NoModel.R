@@ -79,6 +79,15 @@ table(values(label_blob), useNA = "no")
 prop.table(table(values(label_blob), useNA = "no"))
 
 # Filtering pixels ##########################################################
+extract_wavelength <- function(band_names) {
+  
+  wl <- suppressWarnings(as.numeric(band_names))
+  need_regex <- is.na(wl)
+  wl[need_regex] <- as.numeric(gsub(".*\\(([0-9.]+)\\).*", "\\1", band_names[need_regex]))
+  
+  return(wl)
+}
+
 
 ## Cleaning extreme values / NA ##
 clean_extreme_values <- function(area, valid_range = c(0, 10000)) {
@@ -113,7 +122,6 @@ clean_extreme_values_toNA <- function(area, valid_range = c(0, 10000)) {
 }
 
 
-
 # min(area_crowns)
 # max(area_crowns)
 # sum(is.na(as.matrix(area_crowns)))
@@ -130,7 +138,12 @@ area_blob <- clean_extreme_values_toNA(area_blob)
 # max(area_blob)
 # sum(is.na(as.matrix(area_blob)))
 
+## Removing range & bands with more than 95% na
 filter_good_bands <- function(area, max_na_pct_band = 0.95) {
+  wl <- extract_wavelength(names(area))
+  good_bands_idx <- which(wl < 414 | wl > 447 & wl < 1100 | wl > 1140)
+  area <- area[[good_bands_idx]]
+  
   area_matrix <- as.matrix(area)
   na_pct_per_band <- colSums(is.na(area_matrix)) / nrow(area_matrix)
   good_bands <- na_pct_per_band < max_na_pct_band
@@ -138,12 +151,19 @@ filter_good_bands <- function(area, max_na_pct_band = 0.95) {
   cat("Bands kept :", sum(good_bands), "/", length(good_bands), "\n")
   cat("Bands removed: (>=", max_na_pct_band*100, "% NA) :", sum(!good_bands), "\n")
   
-  area[[good_bands]]   # sous-ensemble du raster, uniquement les bonnes bandes
+  area[[good_bands]]
 }
 
 area_crowns <- filter_good_bands(area_crowns, max_na_pct_band = 0.99)
-
 area_blob <- filter_good_bands(area_blob, max_na_pct_band = 0.99)
+
+wl_crowns <- round(extract_wavelength(names(area_crowns)), 2)
+wl_blob   <- round(extract_wavelength(names(area_blob)), 2)
+common_wl <- intersect(wl_crowns, wl_blob)
+common_wl <- sort(common_wl)
+
+area_crowns <- area_crowns[[which(wl_crowns %in% common_wl)]]
+area_blob   <- area_blob[[which(wl_blob %in% common_wl)]]
 
 ## Removing pixel based on illu ####
 # Only used with the 2016 data (illu file missing fo 2023)
@@ -176,16 +196,6 @@ filter_by_illu <- function(illu_raster, area, label, threshold){
 }
 
 ## Removing pixel based on VNIR reflectance median ####
-
-extract_wavelength <- function(band_names) {
-  
-  wl <- suppressWarnings(as.numeric(band_names))
-  need_regex <- is.na(wl)
-  wl[need_regex] <- as.numeric(gsub(".*\\(([0-9.]+)\\).*", "\\1", band_names[need_regex]))
-  
-  return(wl)
-}
-
 
 filter_by_vnir <- function(area, label, vnir_range = c(400, 1100)){
   
@@ -278,12 +288,12 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 # Comment and/or uncomment to choose the right filter
 
 ### Illu (median) ####
-illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, perc90_illu)
+illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
 area_crowns_filt <- illu_crowns_out$area_filt
 label_crowns_filt <- illu_crowns_out$label_filt
 illu_crop_crowns <- illu_crowns_out$area_crop
 
-illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, perc90_illu)
+illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
 area_blob_filt <- illu_blob_out$area_filt
 label_blob_filt <- illu_blob_out$label_filt
 illu_crop_blob <- illu_blob_out$area_crop
@@ -463,7 +473,7 @@ pca_plot_crowns <- data.frame(
 
 ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "#56B4E9", "1"="#0072B2","2"="#d55e00","3"= "#e69f00"),
+  scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "PCA of the HSI values of the drone photos dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns[1], 1), "%)"),
@@ -488,7 +498,7 @@ pca_plot_crowns_poly <- data.frame(
 
 ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "#56B4E9", "CR1"="#0072B2","CR2"="#d55e00","CR3"= "#e69f00"))+
+  scale_color_manual(values = c("CR0"= "#662700", "CR1"="#CC5500","CR2"="#FF8E33","CR3"= "#FFCA99"))+
   labs(title= "PCA of the mean spectrum per polygon of the DP dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))
@@ -507,7 +517,7 @@ ggplot(pca_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#009e73", "1" = "#cc79a7"),
+    values = c("0" = "#006666", "1" = "#99FFFF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "PCA of the HSI values of the MD dataset (Illu filter)",
@@ -535,7 +545,7 @@ ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() +
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#009e73", "1" = "#cc79a7"),
+    values = c("0" = "#006666", "1" = "#99FFFF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "PCA of the mean spectrum per polygon of the MD dataset (Illu filter)",
@@ -560,7 +570,7 @@ tsne_plot_crowns <- data.frame(
 
 ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "#56B4E9", "1"="#0072B2","2"="#d55e00","3"= "#e69f00"),
+  scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "tSNE of the HSI values of the drone photos dataset (Illu filter)" )
 
@@ -584,7 +594,7 @@ tsne_plot_crowns_poly <- data.frame(
 
 ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+ #(size = 3)
-  scale_color_manual(values = c("CR0"= "#56B4E9", "CR1"="#0072B2","CR2"="#d55e00","CR3"= "#e69f00"))+
+  scale_color_manual(values = c("CR0"= "#662700", "CR1"="#CC5500","CR2"="#FF8E33","CR3"= "#FFCA99"))+
   # scale_color_viridis_d(option="turbo")+
   labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (Illu filter)" )
 
@@ -604,7 +614,7 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#009e73", "1" = "#cc79a7"),
+    values = c("0" = "#006666", "1" = "#99FFFF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "tSNE of the HSI values of the MD dataset (Illu filter)" )
@@ -632,7 +642,7 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() + #(size = 3)
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#009e73", "1" = "#cc79a7"),
+    values = c("0" = "#006666", "1" = "#99FFFF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (Illu filter)" )
@@ -654,7 +664,7 @@ umap_plot_crowns <- data.frame(
   
 ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "#56B4E9", "1"="#0072B2","2"="#d55e00","3"= "#e69f00"),
+  scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
   labs(title= "UMAP of the HSI values of the DP dataset (Illu filter)" )
@@ -676,7 +686,7 @@ umap_plot_crowns_poly <- data.frame(
 
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "#56B4E9", "CR1"="#0072B2","CR2"="#d55e00","CR3"= "#e69f00"))+
+  scale_color_manual(values = c("CR0"= "#662700", "CR1"="#CC5500","CR2"="#FF8E33","CR3"= "#FFCA99"))+
   labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (Illu filter)" )
 
 
@@ -694,7 +704,7 @@ ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#009e73", "1" = "#cc79a7"),
+    values = c("0" = "#006666", "1" = "#99FFFF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "UMAP of the HSI values of the MD dataset (Illu filter)" )
@@ -719,7 +729,7 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#009e73", "1" = "#cc79a7"),
+    values = c("0" = "#006666", "1" = "#99FFFF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (Illu filter)" )
@@ -1115,7 +1125,7 @@ selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1")
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
   display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
-  color = c("#56B4E9", "#0072b2", "#D55E00","#E69F00", "#009E73", "#CC79A7")
+  color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#006666", "#99FFFF")
 )
 
 ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
@@ -1316,8 +1326,8 @@ names(accuracy_per_crown_blob)[3] <- "accuracy"
 p1 <- ggplot(accuracy_per_crown_blob, aes(x = LianaOriginal, y = accuracy, fill = LianaOriginal)) +
   geom_boxplot() +
   geom_jitter(width = 0.15, alpha = 0.5) +
-  scale_fill_manual(values = c("0" = "#56B4E9", "1" = "#0072B2",
-                               "2" = "#d55e00", "3" = "#e69f00")) +
+  scale_fill_manual(values = c("0" = "#662700", "1" = "#CC5500",
+                               "2" = "#FF8E33", "3" = "#FFCA99")) +
   labs(x = "Liana class in drone photos (DP)", y = "Mean accuracy per crown",
        title = "LDA trained on MD, tested on DP (Illu filter)") +
   theme(legend.position = "none")
@@ -1338,8 +1348,8 @@ predicted_liana_per_crown_blob$prediction <- predicted_liana_per_crown_blob$pred
 p2 <- ggplot(predicted_liana_per_crown_blob, aes(x = LianaOriginal, y = prediction, fill = LianaOriginal)) +
   geom_boxplot() +
   geom_jitter(width = 0.15, alpha = 0.5) +
-  scale_fill_manual(values = c("0" = "#56B4E9", "1" = "#0072B2",
-                               "2" = "#d55e00", "3" = "#e69f00")) +
+  scale_fill_manual(values = c("0" = "#662700", "1" = "#CC5500",
+                               "2" = "#FF8E33", "3" = "#FFCA99")) +
   labs(x = "Liana class in drone photos (DP)", y = "Liana predicted per crown (%)",
        title = "LDA trained on MD, tested on DP (Illu filter)") +
   theme(legend.position = "none")
@@ -1440,32 +1450,38 @@ accuracy_per_crown_cv <- aggregate(correct ~ poly_id + LianaOriginal + fold,
                                    FUN = mean)
 names(accuracy_per_crown_cv)[4] <- "accuracy"
 
-
+accuracy_points_by_fold <- aggregate(correct ~ poly_id + LianaOriginal + fold,
+                                     data = all_cv_results,
+                                     FUN = mean)
 
 p3 <- ggplot() +
   geom_boxplot(
-    data = aggregate(correct ~ LianaOriginal, data = all_cv_results, FUN = mean),
+    data = accuracy_points_by_fold,
     aes(x = LianaOriginal, y = correct, color = LianaOriginal),
-    fill = NA,
+    fill = NA,       
     linewidth = 0.8,
     show.legend = FALSE
   ) +
   geom_jitter(
-    data = all_cv_results,
-    aes(x = LianaOriginal, y = correct, shape = factor(fold)),
+    data = accuracy_points_by_fold,
+    aes(x = LianaOriginal, y = correct, shape = factor(fold), fill = factor(fold)),
     width = 0.15,
     alpha = 0.7,
     size = 2.5,
-    color = "black"
+    color = "black",
+    stroke = 0.3
   ) +
-  scale_color_manual(values = c("0" = "#56B4E9", "1" = "#0072B2", "2" = "#d55e00", "3" = "#e69f00")) +
-  scale_shape_manual(values = c("1" = 16, "2" = 17, "3" = 15, "4" = 18, "5" = 19)) +
-  labs(x = "Liana class in drone photos (DP)", y = "Mean accuracy per crown",
-       title = "Cross validation (StratifiedGroupKFold) on DP (Illu filter)") +
+  scale_color_manual(values = c("0" = "#662700", "1" = "#CC5500", "2" = "#FF8E33", "3" = "#FFCA99")) +
+  scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5"="#DB6D00")) +
+  scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
+  labs(
+    x = "Liana class in drone photos (DP)",
+    y = "Mean accuracy per crown",
+    title = "Cross validation (StratifiedGroupKFold) on DP (Illu filter)"
+  ) +
   theme(legend.position = "bottom")
 
 p3
-
 
 all_cv_results$predicted_cv_num <- as.numeric(as.character(all_cv_results$predicted))
 
@@ -1476,30 +1492,29 @@ predicted_liana_per_crown_cv <- aggregate(
 )
 names(predicted_liana_per_crown_cv)[4] <- "prediction"
 
-
 predicted_liana_per_crown_cv$prediction <- predicted_liana_per_crown_cv$prediction * 100
+
 
 p4 <- ggplot() +
   geom_boxplot(
-    data = aggregate(predicted_cv_num ~ LianaOriginal, data = all_cv_results, FUN = mean),
-    aes(x = LianaOriginal, y = predicted_cv_num * 100, color = LianaOriginal),
+    data = predicted_liana_per_crown_cv,
+    aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
     fill = NA,
     linewidth = 0.8,
     show.legend = FALSE
   ) +
   geom_jitter(
-    data = all_cv_results,
-    aes(x = LianaOriginal, y = predicted_cv_num * 100, shape = factor(fold)),
+    data = predicted_liana_per_crown_cv,
+    aes(x = LianaOriginal, y = prediction, shape = factor(fold), fill = factor(fold)),
     width = 0.15,
     alpha = 0.7,
-    size = 2.5
+    size = 2.5,
+    color = "black",
+    stroke = 0.3
   ) +
-  scale_color_manual(
-    values = c("0" = "#56B4E9", "1" = "#0072B2", "2" = "#d55e00", "3" = "#e69f00")
-  ) +
-  scale_shape_manual(
-    values = c("1" = 16, "2" = 17, "3" = 15, "4" = 18, "5" = 19)
-  ) +
+  scale_color_manual(values = c("0" = "#662700", "1" = "#CC5500", "2" = "#FF8E33", "3" = "#FFCA99")) +
+  scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5"="#DB6D00")) +
+  scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
   labs(
     x = "Liana class in drone photos (DP)",
     y = "Liana predicted per crown (%)",
@@ -1540,3 +1555,10 @@ ggplot(confusion_df_cv, aes(x = True, y = Predicted, fill = Freq)) +
   theme_minimal()
 
 save.image(file = file.path("Classification_R", "LianaClassification", "myEnvironment.RData"))
+
+# Source - https://stackoverflow.com/a/57153733
+# Posted by Ma Ba
+# Retrieved 2026-09-22, License - CC BY-SA 4.0
+
+# install.packages('RColorBrewer')
+
