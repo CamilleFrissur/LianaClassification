@@ -351,33 +351,14 @@ prop.table(table(values(label_blob_filt), useNA = "no"))
 data_prep_per_pixel <- function(area_filtered, label_filtered, illu_crop_area, max_na_pct = 0.05){
   area_matrix <- as.matrix(area_filtered)
   label_matrix <- as.matrix (label_filtered)[,1]
-  
-  # na_per_band <- colSums(is.na(area_matrix))
-  # good_bands <- na_per_band < nrow(area_matrix)
-  # sum(good_bands)
-  
-  # na_pct_per_pixel <- rowSums(is.na(area_matrix[, good_bands])) / sum(good_bands)
-  # no_na_row <- na_pct_per_pixel <= max_na_pct
-  # valid_idx <- which(!is.na(label_matrix) & no_na_row)
-  # valid_idx <- which(!is.na(label_matrix) & complete.cases(area_matrix[, good_bands]))
  
   valid_idx <- which(!is.na(label_matrix) & rowSums(is.na(area_matrix)) == 0)
-  # length(valid_idx))
 
   area_valid <- area_matrix[valid_idx, , drop = FALSE]
   labels_valid <- label_matrix[valid_idx]
-  # dim(crowns_filt_valid)
-  # length(labels_valid)
   
   illu_matrix <- as.matrix(illu_crop_area)[, 1]
   illu_valid <- illu_matrix[valid_idx]
-  
-  # if (!is.null(illu_crop_area)) {
-  #   illu_matrix <- as.matrix(illu_crop_area)[, 1]
-  #   illu_valid <- illu_matrix[valid_idx]
-  # } else {
-  #   illu_valid <- NULL
-  # }
   
   output_list <- list(
     matrix = area_valid,
@@ -1521,12 +1502,12 @@ p4 <- ggplot() +
     title = "Cross validation (StratifiedGroupKFold) on DP (Illu filter)"
   ) +
   theme(legend.position = "bottom")
+p4
 
 grid.arrange(p3, p4, ncol = 2)
 
 
 #### Confusion matrix (for StratifiedGroupKFold)
-# Matrice de confusion globale (tous les folds combinés)
 all_true <- unlist(lapply(cv_results, function(x) x$test_data$Liana))
 all_pred <- unlist(lapply(cv_results, function(x) x$predictions$class))
 
@@ -1543,7 +1524,6 @@ print(cm_cv) #95% CI [1] = F1-Score
 library(tidyr)
 library(ggplot2)
 
-# Exemple pour l'approche 1
 confusion_df_cv <- as.data.frame(confusion_matrix_cv)
 colnames(confusion_df_cv) <- c("True", "Predicted", "Freq")
 
