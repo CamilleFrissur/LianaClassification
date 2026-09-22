@@ -150,6 +150,8 @@ area_blob <- filter_good_bands(area_blob, max_na_pct_band = 0.99)
 
 med_illu <- global(illu[[1]], fun = median, na.rm = TRUE)$global
 perc90_illu <- global(illu[[1]], fun = quantile, probs = 0.9, na.rm = TRUE)$X90.
+perc95_illu <- global(illu[[1]], fun = quantile, probs = 0.95, na.rm = TRUE)$X90.
+
 
 filter_by_illu <- function(illu_raster, area, label, threshold){
   illu_crop_area <- crop(illu_raster, area)
@@ -276,15 +278,15 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 # Comment and/or uncomment to choose the right filter
 
 ### Illu (median) ####
-# illu_crowns_out <- filter_by_illu(illu, normalized_crowns, label_crowns, med_illu)
-# area_crowns_filt <- illu_crowns_out$area_filt
-# label_crowns_filt <- illu_crowns_out$label_filt
-# illu_crop_crowns <- illu_crowns_out$area_crop
-# 
-# illu_blob_out <- filter_by_illu(illu, normalized_blob, label_blob, med_illu)
-# area_blob_filt <- illu_blob_out$area_filt
-# label_blob_filt <- illu_blob_out$label_filt
-# illu_crop_blob <- illu_blob_out$area_crop
+illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, perc90_illu)
+area_crowns_filt <- illu_crowns_out$area_filt
+label_crowns_filt <- illu_crowns_out$label_filt
+illu_crop_crowns <- illu_crowns_out$area_crop
+
+illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, perc90_illu)
+area_blob_filt <- illu_blob_out$area_filt
+label_blob_filt <- illu_blob_out$label_filt
+illu_crop_blob <- illu_blob_out$area_crop
 
 ### VNIR (mean) ####
 # spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
@@ -302,21 +304,21 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 # illu_crop_blob <- area_blob_filt * 0
 
 ### NIR (20%) ####
-spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
-spec_crowns_filt_NIR$threshold_qual
-spec_crowns_filt_NIR$threshold_value
-area_crowns_filt <- spec_crowns_filt_NIR$area_filt
-label_crowns_filt<- spec_crowns_filt_NIR$label_filt
-spec_crowns_filt_NIR$threshold_qual  # % remaining pixels
-illu_crop_crowns <-area_crowns_filt *0
-
-spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
-spec_blob_filt_NIR$threshold_qual
-spec_blob_filt_NIR$threshold_value
-area_blob_filt <- spec_blob_filt_NIR$area_filt
-label_blob_filt <- spec_blob_filt_NIR$label_filt
-spec_blob_filt_NIR$threshold_qual
-illu_crop_blob <- area_blob_filt * 0
+# spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
+# spec_crowns_filt_NIR$threshold_qual
+# spec_crowns_filt_NIR$threshold_value
+# area_crowns_filt <- spec_crowns_filt_NIR$area_filt
+# label_crowns_filt<- spec_crowns_filt_NIR$label_filt
+# spec_crowns_filt_NIR$threshold_qual  # % remaining pixels
+# illu_crop_crowns <-area_crowns_filt *0
+# 
+# spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
+# spec_blob_filt_NIR$threshold_qual
+# spec_blob_filt_NIR$threshold_value
+# area_blob_filt <- spec_blob_filt_NIR$area_filt
+# label_blob_filt <- spec_blob_filt_NIR$label_filt
+# spec_blob_filt_NIR$threshold_qual
+# illu_crop_blob <- area_blob_filt * 0
 
 ## Normalizatopn ####
 area_crowns_filt   <- area_crowns_filt / mean(area_crowns_filt, na.rm = TRUE)
@@ -461,9 +463,9 @@ pca_plot_crowns <- data.frame(
 
 ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
+  scale_color_manual(values = c("0"= "#56B4E9", "1"="#0072B2","2"="#d55e00","3"= "#e69f00"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "PCA of the HSI values of the drone photos dataset (NIR filter)",
+  labs(title= "PCA of the HSI values of the drone photos dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns[2], 1), "%)"))
 
@@ -486,8 +488,8 @@ pca_plot_crowns_poly <- data.frame(
 
 ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
-  labs(title= "PCA of the mean spectrum per polygon of the DP dataset (NIR filter)",
+  scale_color_manual(values = c("CR0"= "#56B4E9", "CR1"="#0072B2","CR2"="#d55e00","CR3"= "#e69f00"))+
+  labs(title= "PCA of the mean spectrum per polygon of the DP dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))
 
@@ -505,10 +507,10 @@ ggplot(pca_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "olivedrab3", "1" = "deeppink2"),
+    values = c("0" = "#009e73", "1" = "#cc79a7"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA of the HSI values of the MD dataset (NIR filter)",
+  labs(title= "PCA of the HSI values of the MD dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_blob[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob[2], 1), "%)"))
 
@@ -533,10 +535,10 @@ ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() +
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "olivedrab3", "1" = "deeppink2"),
+    values = c("0" = "#009e73", "1" = "#cc79a7"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA of the mean spectrum per polygon of the MD dataset (NIR filter)",
+  labs(title= "PCA of the mean spectrum per polygon of the MD dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_blob_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob_poly[2], 1), "%)"))
 
@@ -547,7 +549,7 @@ ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
 perplexity_crown = (nrow(crowns_filt_valid)-1)/3
 perplexity_crown
 set.seed(2)
-tsne_out_crowns <- Rtsne(crowns_filt_valid, check_duplicates = FALSE )
+tsne_out_crowns <- Rtsne(crowns_filt_valid, check_duplicates = FALSE, perplexity = perplexity_crown )
 
 tsne_plot_crowns <- data.frame(
   x = tsne_out_crowns$Y[,1],
@@ -558,9 +560,9 @@ tsne_plot_crowns <- data.frame(
 
 ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
+  scale_color_manual(values = c("0"= "#56B4E9", "1"="#0072B2","2"="#d55e00","3"= "#e69f00"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "tSNE of the HSI values of the drone photos dataset (NIR filter)" )
+  labs(title= "tSNE of the HSI values of the drone photos dataset (Illu filter)" )
 
 # Only useful if the illumination filter was used
 # tsne_plot_crowns$illu <- illu_crowns_valid
@@ -582,9 +584,9 @@ tsne_plot_crowns_poly <- data.frame(
 
 ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+ #(size = 3)
-  scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
+  scale_color_manual(values = c("CR0"= "#56B4E9", "CR1"="#0072B2","CR2"="#d55e00","CR3"= "#e69f00"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (NIR filter)" )
+  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (Illu filter)" )
 
 ## For MD per pixel
 # perplexity_blob = (nrow(blob_filt_valid)-1)/3 - 1
@@ -602,10 +604,10 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "olivedrab3", "1" = "deeppink2"),
+    values = c("0" = "#009e73", "1" = "#cc79a7"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "tSNE of the HSI values of the MD dataset (NIR filter)" )
+  labs(title= "tSNE of the HSI values of the MD dataset (Illu filter)" )
 
 # Only with illu filter
 # tsne_plot_blob$illu <- illu_blob_valid
@@ -630,10 +632,10 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() + #(size = 3)
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "olivedrab3", "1" = "deeppink2"),
+    values = c("0" = "#009e73", "1" = "#cc79a7"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (NIR filter)" )
+  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (Illu filter)" )
 
 
 ## UMAP #########################################################################
@@ -652,10 +654,10 @@ umap_plot_crowns <- data.frame(
   
 ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "olivedrab3", "1"="deeppink3","2"="purple4","3"= "orange3"),
+  scale_color_manual(values = c("0"= "#56B4E9", "1"="#0072B2","2"="#d55e00","3"= "#e69f00"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "UMAP of the HSI values of the DP dataset (NIR filter)" )
+  labs(title= "UMAP of the HSI values of the DP dataset (Illu filter)" )
 
 # Only with illu filter
 # umap_plot_crowns$illu <- illu_crowns_valid
@@ -674,8 +676,8 @@ umap_plot_crowns_poly <- data.frame(
 
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "olivedrab3", "CR1"="deeppink3","CR2"="purple4","CR3"= "orange3"))+
-  labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (NIR filter)" )
+  scale_color_manual(values = c("CR0"= "#56B4E9", "CR1"="#0072B2","CR2"="#d55e00","CR3"= "#e69f00"))+
+  labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (Illu filter)" )
 
 
 #For MD per pixel
@@ -692,10 +694,10 @@ ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "olivedrab3", "1" = "deeppink2"),
+    values = c("0" = "#009e73", "1" = "#cc79a7"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the HSI values of the MD dataset (NIR filter)" )
+  labs(title= "UMAP of the HSI values of the MD dataset (Illu filter)" )
 
 # Only with illu filter
 # umap_plot_blob$illu <- illu_blob_valid
@@ -717,10 +719,10 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "olivedrab3", "1" = "deeppink2"),
+    values = c("0" = "#009e73", "1" = "#cc79a7"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (NIR filter)" )
+  labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (Illu filter)" )
 
 # # Bhattacharyya distance ###################################################
 # 
@@ -1113,13 +1115,13 @@ selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1")
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
   display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
-  color = c("yellowgreen", "darkorange1", "purple4", "deeppink3", "darkgreen", "pink")
+  color = c("#56B4E9", "#0072b2", "#D55E00","#E69F00", "#009E73", "#CC79A7")
 )
 
 ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
   geom_line(linewidth = 1) +
   labs(x = "Wavelength (nm)", y = "Mean reflectance",
-       title = "Mean spectrum by dataset group (NIR filter)", color = "Type") +
+       title = "Mean spectrum by dataset group (Illu filter)", color = "Type") +
   scale_color_manual(
     values = setNames(label_config$color, label_config$group),
     labels = setNames(label_config$display_name, label_config$group))
@@ -1308,17 +1310,43 @@ cat("Mean accuracy per crown:", round(accuracy_blob_to_crown, 3), "\n")
 accuracy_per_crown_blob <- aggregate(correct_blob ~ poly_id + LianaOriginal,
                                      data = test_all_pure,
                                      FUN = mean)
+
 names(accuracy_per_crown_blob)[3] <- "accuracy"
 
 p1 <- ggplot(accuracy_per_crown_blob, aes(x = LianaOriginal, y = accuracy, fill = LianaOriginal)) +
   geom_boxplot() +
   geom_jitter(width = 0.15, alpha = 0.5) +
-  scale_fill_manual(values = c("0" = "olivedrab3", "1" = "deeppink3",
-                               "2" = "purple4", "3" = "orange3")) +
+  scale_fill_manual(values = c("0" = "#56B4E9", "1" = "#0072B2",
+                               "2" = "#d55e00", "3" = "#e69f00")) +
   labs(x = "Liana class in drone photos (DP)", y = "Mean accuracy per crown",
-       title = "LDA trained on MD, tested on DP") +
+       title = "LDA trained on MD, tested on DP (Illu filter)") +
   theme(legend.position = "none")
 p1
+
+test_all_pure$predicted_blob_num <- as.numeric(as.character(test_all_pure$predicted_blob))
+
+predicted_liana_per_crown_blob <- aggregate(
+  predicted_blob_num ~ poly_id + LianaOriginal,
+  data = test_all_pure,
+  FUN = mean
+)
+names(predicted_liana_per_crown_blob)[3] <- "prediction"
+
+
+predicted_liana_per_crown_blob$prediction <- predicted_liana_per_crown_blob$prediction * 100
+
+p2 <- ggplot(predicted_liana_per_crown_blob, aes(x = LianaOriginal, y = prediction, fill = LianaOriginal)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.15, alpha = 0.5) +
+  scale_fill_manual(values = c("0" = "#56B4E9", "1" = "#0072B2",
+                               "2" = "#d55e00", "3" = "#e69f00")) +
+  labs(x = "Liana class in drone photos (DP)", y = "Liana predicted per crown (%)",
+       title = "LDA trained on MD, tested on DP (Illu filter)") +
+  theme(legend.position = "none")
+
+p2
+
+grid.arrange(p1, p2, ncol = 2)
 
 ### StratifiedGroupKFold ####
 
@@ -1342,16 +1370,13 @@ set.seed(123)
 folds <- stratified_group_kfold(crowns_df_pure, "poly_id", "Liana", k = 5)
 
 cv_results <- list()
-for (i in 1:length(folds)) {  # <-- Utilise length(folds) au lieu de folds$n
-  # Extraire les indices train/test depuis la liste
-  test_indices <- folds[[i]]  # Indices du fold i (test)
-  train_indices <- setdiff(1:nrow(crowns_df_pure), test_indices)  # Indices complémentaires (train)
+for (i in 1:length(folds)) {  
+  test_indices <- folds[[i]]  
+  train_indices <- setdiff(1:nrow(crowns_df_pure), test_indices) 
   
-  # Données train/test
   train_data <- crowns_df_pure[train_indices, ]
   test_data  <- crowns_df_pure[test_indices, ]
   
-  # Prétraitement (standardisation sur train uniquement)
   band_cols_cv <- sapply(train_data, is.numeric)
   band_cols_cv <- band_cols_cv & names(train_data) != "poly_id"
   
@@ -1361,7 +1386,7 @@ for (i in 1:length(folds)) {  # <-- Utilise length(folds) au lieu de folds$n
   train_data[, band_cols_cv] <- scale(train_data[, band_cols_cv], center = train_means, scale = train_sds)
   test_data[, band_cols_cv]  <- scale(test_data[, band_cols_cv], center = train_means, scale = train_sds)
   
-  # Filtrage des colonnes constantes/colinéaires (SUR TRAIN UNIQUEMENT)
+  # Removing constant (colinear columns)
   X_train_cv <- train_data[, band_cols_cv]
   constant_cols_cv <- sapply(X_train_cv, function(x) length(unique(x)) == 1)
   X_train_filtered_cv <- X_train_cv[, !constant_cols_cv, drop = FALSE]
@@ -1374,11 +1399,9 @@ for (i in 1:length(folds)) {  # <-- Utilise length(folds) au lieu de folds$n
     X_train_filtered_cv <- X_train_filtered_cv[, !names(X_train_filtered_cv) %in% high_cor_cols_cv, drop = FALSE]
   }
   
-  # Modèle LDA
   train_lda_cv <- data.frame(Liana = train_data$Liana, X_train_filtered_cv)
   model_cv <- lda(Liana ~ ., data = train_lda_cv, tol = 1e-8)
   
-  # Prédictions
   X_test_cv <- test_data[, band_cols_cv]
   X_test_filtered_cv <- X_test_cv[, !constant_cols_cv, drop = FALSE]
   X_test_filtered_cv <- X_test_filtered_cv[, names(X_train_filtered_cv), drop = FALSE]
@@ -1386,7 +1409,6 @@ for (i in 1:length(folds)) {  # <-- Utilise length(folds) au lieu de folds$n
   test_lda_cv <- data.frame(Liana = test_data$Liana, X_test_filtered_cv)
   predictions_cv <- predict(model_cv, test_lda_cv)
   
-  # Stocke les résultats
   cv_results[[i]] <- list(
     fold = i,
     accuracy = mean(predictions_cv$class == test_data$Liana),
@@ -1402,8 +1424,9 @@ cat("Accuracies per fold:", paste(round(cv_accuracies, 3), collapse = ", "), "\n
 cat("Mean accuracy CV:", round(mean(cv_accuracies), 3), "\n")
 
 all_cv_results <- do.call(rbind, lapply(cv_results, function(x) {
+  n_test <- nrow(x$test_data)
   data.frame(
-    fold = x$fold,
+    fold = rep(x$fold, n_test),
     poly_id = x$test_data$poly_id,
     LianaOriginal = x$test_data$LianaOriginal,
     correct = x$predictions$class == x$test_data$Liana,
@@ -1411,21 +1434,109 @@ all_cv_results <- do.call(rbind, lapply(cv_results, function(x) {
   )
 }))
 
-accuracy_per_crown_cv <- aggregate(correct ~ poly_id + LianaOriginal,
+
+accuracy_per_crown_cv <- aggregate(correct ~ poly_id + LianaOriginal + fold,
                                    data = all_cv_results,
                                    FUN = mean)
-names(accuracy_per_crown_cv)[3] <- "accuracy"
+names(accuracy_per_crown_cv)[4] <- "accuracy"
 
-p2 <- ggplot(accuracy_per_crown_cv, aes(x = LianaOriginal, y = accuracy, fill = LianaOriginal)) +
-  geom_boxplot() +
-  geom_jitter(width = 0.15, alpha = 0.5) +
-  scale_fill_manual(values = c("0" = "olivedrab3", "1" = "deeppink3",
-                               "2" = "purple4", "3" = "orange3")) +
+
+
+p3 <- ggplot() +
+  geom_boxplot(
+    data = aggregate(correct ~ LianaOriginal, data = all_cv_results, FUN = mean),
+    aes(x = LianaOriginal, y = correct, color = LianaOriginal),
+    fill = NA,
+    linewidth = 0.8,
+    show.legend = FALSE
+  ) +
+  geom_jitter(
+    data = all_cv_results,
+    aes(x = LianaOriginal, y = correct, shape = factor(fold)),
+    width = 0.15,
+    alpha = 0.7,
+    size = 2.5,
+    color = "black"
+  ) +
+  scale_color_manual(values = c("0" = "#56B4E9", "1" = "#0072B2", "2" = "#d55e00", "3" = "#e69f00")) +
+  scale_shape_manual(values = c("1" = 16, "2" = 17, "3" = 15, "4" = 18, "5" = 19)) +
   labs(x = "Liana class in drone photos (DP)", y = "Mean accuracy per crown",
-       title = "Cross validation (StratifiedGroupKFold) on DP") +
-  theme(legend.position = "none")
-p2
+       title = "Cross validation (StratifiedGroupKFold) on DP (Illu filter)") +
+  theme(legend.position = "bottom")
 
-grid.arrange(p1, p2, ncol = 2)
+p3
+
+
+all_cv_results$predicted_cv_num <- as.numeric(as.character(all_cv_results$predicted))
+
+predicted_liana_per_crown_cv <- aggregate(
+  predicted_cv_num ~ poly_id + LianaOriginal + fold,
+  data = all_cv_results,
+  FUN = mean
+)
+names(predicted_liana_per_crown_cv)[4] <- "prediction"
+
+
+predicted_liana_per_crown_cv$prediction <- predicted_liana_per_crown_cv$prediction * 100
+
+p4 <- ggplot() +
+  geom_boxplot(
+    data = aggregate(predicted_cv_num ~ LianaOriginal, data = all_cv_results, FUN = mean),
+    aes(x = LianaOriginal, y = predicted_cv_num * 100, color = LianaOriginal),
+    fill = NA,
+    linewidth = 0.8,
+    show.legend = FALSE
+  ) +
+  geom_jitter(
+    data = all_cv_results,
+    aes(x = LianaOriginal, y = predicted_cv_num * 100, shape = factor(fold)),
+    width = 0.15,
+    alpha = 0.7,
+    size = 2.5
+  ) +
+  scale_color_manual(
+    values = c("0" = "#56B4E9", "1" = "#0072B2", "2" = "#d55e00", "3" = "#e69f00")
+  ) +
+  scale_shape_manual(
+    values = c("1" = 16, "2" = 17, "3" = 15, "4" = 18, "5" = 19)
+  ) +
+  labs(
+    x = "Liana class in drone photos (DP)",
+    y = "Liana predicted per crown (%)",
+    title = "Cross validation (StratifiedGroupKFold) on DP (Illu filter)"
+  ) +
+  theme(legend.position = "bottom")
+
+grid.arrange(p3, p4, ncol = 2)
+
+
+#### Confusion matrix (for StratifiedGroupKFold)
+# Matrice de confusion globale (tous les folds combinés)
+all_true <- unlist(lapply(cv_results, function(x) x$test_data$Liana))
+all_pred <- unlist(lapply(cv_results, function(x) x$predictions$class))
+
+confusion_matrix_cv <- table(True = all_true, Predicted = all_pred)
+print(confusion_matrix_cv)
+
+cm_cv <- confusionMatrix(
+  factor(all_pred, levels = c("0", "1")),
+  factor(all_true, levels = c("0", "1")),
+  positive = "1"
+)
+print(cm_cv) #95% CI [1] = F1-Score
+
+library(tidyr)
+library(ggplot2)
+
+# Exemple pour l'approche 1
+confusion_df_cv <- as.data.frame(confusion_matrix_cv)
+colnames(confusion_df_cv) <- c("True", "Predicted", "Freq")
+
+ggplot(confusion_df_cv, aes(x = True, y = Predicted, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), color ="white") +
+  scale_fill_gradient(low = "red", high = "blue") +
+  labs(x = "True", y = "Predicted", title = "Confusion matrix for CV (Illu filter)") +
+  theme_minimal()
 
 save.image(file = file.path("Classification_R", "LianaClassification", "myEnvironment.RData"))
