@@ -74,10 +74,13 @@ label_crowns <- rasterize(crowns, area_crowns, field = "LianaFullC")
 ## Proportion of lianas before filtering #####################################
 table(values(label_crowns), useNA = "no")
 prop.table(table(values(label_crowns), useNA = "no"))
+table(values(crowns)[["LianaFullC"]])
+prop.table(table(values(crowns)[["LianaFullC"]]))
 
 table(values(label_blob), useNA = "no")
 prop.table(table(values(label_blob), useNA = "no"))
-
+table(values(blob)[["Type"]])
+prop.table(table(values(blob)[["Type"]]))
 # Filtering pixels ##########################################################
 extract_wavelength <- function(band_names) {
   
@@ -285,64 +288,80 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 
 
 ## Applying/choosing the filter #########################################################
+
+### Illumination 
+illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
+illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
+
+### VNIR (mean) 
+VNIR_crowns_out <- filter_by_vnir(area_crowns, label_crowns)
+VNIR_blob_out <- filter_by_vnir(area_blob, label_blob)
+
+### NIR (20%) 
+NIR_crowns_out <- filter_by_nir(area_crowns, label_crowns)
+NIR_blob_out <- filter_by_nir(area_blob, label_blob)
+
 # Comment and/or uncomment to choose the right filter
 
 ### Illu (median) ####
-illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
-area_crowns_filt <- illu_crowns_out$area_filt
-label_crowns_filt <- illu_crowns_out$label_filt
-illu_crop_crowns <- illu_crowns_out$area_crop
-
-illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
-area_blob_filt <- illu_blob_out$area_filt
-label_blob_filt <- illu_blob_out$label_filt
-illu_crop_blob <- illu_blob_out$area_crop
+# crowns_out <-illu_crowns_out
+# blob_out <- illu_blob_out
+# area_crowns_filt <- crowns_out$area_filt
+# label_crowns_filt <- crowns_out$label_filt
+# area_blob_filt <- illu_blob_out$area_filt
+# label_blob_filt <- illu_blob_out$label_filt
+# illu_crop_crowns <- illu_crowns_out$area_crop
+# illu_crop_blob <- illu_blob_out$area_crop
+######################
 
 ### VNIR (mean) ####
-# spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
-# spec_crowns_filt_VNIR$threshold_qual
-# spec_crowns_filt_VNIR$threshold
-# area_crowns_filt <- spec_crowns_filt_VNIR$area_filt
-# label_crowns_filt<- spec_crowns_filt_VNIR$label_filt
+# crowns_out <-VNIR_crowns_out
+# blob_out <- VNIR_blob_out
+# area_crowns_filt <- crowns_out$area_filt
+# label_crowns_filt <- crowns_out$label_filt
+# area_blob_filt <- illu_blob_out$area_filt
+# label_blob_filt <- illu_blob_out$label_filt
 # illu_crop_crowns <- area_crowns_filt *0
-# 
-# spec_blob_filt_VNIR   <- filter_by_vnir(area_blob, label_blob)
-# spec_blob_filt_VNIR$threshold_qual
-# spec_blob_filt_VNIR$threshold
-# area_blob_filt <- spec_blob_filt_VNIR$area_filt
-# label_blob_filt <- spec_blob_filt_VNIR$label_filt
 # illu_crop_blob <- area_blob_filt * 0
+# ####################
 
 ### NIR (20%) ####
-# spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
-# spec_crowns_filt_NIR$threshold_qual
-# spec_crowns_filt_NIR$threshold_value
-# area_crowns_filt <- spec_crowns_filt_NIR$area_filt
-# label_crowns_filt<- spec_crowns_filt_NIR$label_filt
-# spec_crowns_filt_NIR$threshold_qual  # % remaining pixels
-# illu_crop_crowns <-area_crowns_filt *0
-# 
-# spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
-# spec_blob_filt_NIR$threshold_qual
-# spec_blob_filt_NIR$threshold_value
-# area_blob_filt <- spec_blob_filt_NIR$area_filt
-# label_blob_filt <- spec_blob_filt_NIR$label_filt
-# spec_blob_filt_NIR$threshold_qual
-# illu_crop_blob <- area_blob_filt * 0
+crowns_out <-NIR_crowns_out
+blob_out <- NIR_blob_out
+area_crowns_filt <- crowns_out$area_filt
+label_crowns_filt <- crowns_out$label_filt
+area_blob_filt <- illu_blob_out$area_filt
+label_blob_filt <- illu_blob_out$label_filt
+illu_crop_crowns <- area_crowns_filt *0
+illu_crop_blob <- area_blob_filt * 0
+###################
 
-## Normalizatopn ####
+## Normalization ####
 area_crowns_filt   <- area_crowns_filt / mean(area_crowns_filt, na.rm = TRUE)
 area_blob_filt <- area_blob_filt / mean(area_blob_filt, na.rm = TRUE)
 
-## Proportion of lianas after filtering ######################################
-table(values(label_crowns_filt), useNA = "no")
-prop.table(table(values(label_crowns_filt), useNA = "no"))
-
-table(values(label_blob_filt), useNA = "no")
-prop.table(table(values(label_blob_filt), useNA = "no"))
-
 ## Correlation (Chi2) between filters ##########################################
-# TO DO !!
+
+### Illumination 
+illu_crowns_out_illu <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
+label_crowns_filt_illu <- illu_crowns_out$label_filt
+
+illu_blob_out_illu <- filter_by_illu(illu, area_blob, label_blob, med_illu)
+label_blob_filt_illu <- illu_blob_out$label_filt
+
+### VNIR (mean) 
+spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
+label_crowns_filt_VNIR <- spec_crowns_filt_VNIR$label_filt
+
+spec_blob_filt_VNIR <- filter_by_vnir(area_blob, label_blob)
+label_blob_filt_VNIR <- spec_blob_filt_VNIR$label_filt
+
+### NIR (20%) 
+spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
+label_crowns_filt_NIR <- spec_crowns_filt_NIR$label_filt
+
+spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
+label_blob_filt_NIR <- spec_blob_filt_NIR$label_filt
 
 # Dimensionality reduction and data visualization ###############################
 
@@ -1112,7 +1131,7 @@ label_config <- data.frame(
 ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
   geom_line(linewidth = 1) +
   labs(x = "Wavelength (nm)", y = "Mean reflectance",
-       title = "Mean spectrum by dataset group (Illu filter)", color = "Type") +
+       title = "Mean spectrum by dataset group (NIR filter)", color = "Type") +
   scale_color_manual(
     values = setNames(label_config$color, label_config$group),
     labels = setNames(label_config$display_name, label_config$group))
@@ -1357,6 +1376,7 @@ stratified_group_kfold <- function(data, group_col, stratify_col, k = 5, seed = 
   lapply(folds, function(groups) which(data[[group_col]] %in% groups))
 }
 
+
 set.seed(123)
 folds <- stratified_group_kfold(crowns_df_pure, "poly_id", "Liana", k = 5)
 
@@ -1425,6 +1445,10 @@ all_cv_results <- do.call(rbind, lapply(cv_results, function(x) {
   )
 }))
 
+all_cv_results_filtered <- subset(all_cv_results, LianaOriginal %in% c("0", "3"))
+
+mean_accuracy_pixel_filtered <- mean(all_cv_results_filtered$correct)
+mean_accuracy_pixel_filtered
 
 accuracy_per_crown_cv <- aggregate(correct ~ poly_id + LianaOriginal + fold,
                                    data = all_cv_results,
@@ -1435,16 +1459,19 @@ accuracy_points_by_fold <- aggregate(correct ~ poly_id + LianaOriginal + fold,
                                      data = all_cv_results,
                                      FUN = mean)
 
+
+accuracy_points_by_fold_filtered <- subset(accuracy_points_by_fold,LianaOriginal %in% c("0", "3"))
+
 p3 <- ggplot() +
   geom_boxplot(
-    data = accuracy_points_by_fold,
+    data = accuracy_points_by_fold_filtered,
     aes(x = LianaOriginal, y = correct, color = LianaOriginal),
     fill = NA,       
     linewidth = 0.8,
     show.legend = FALSE
   ) +
   geom_jitter(
-    data = accuracy_points_by_fold,
+    data = accuracy_points_by_fold_filtered,
     aes(x = LianaOriginal, y = correct, shape = factor(fold), fill = factor(fold)),
     width = 0.15,
     alpha = 0.7,
@@ -1452,15 +1479,16 @@ p3 <- ggplot() +
     color = "black",
     stroke = 0.3
   ) +
-  scale_color_manual(values = c("0" = "#662700", "1" = "#CC5500", "2" = "#FF8E33", "3" = "#FFCA99")) +
+  scale_color_manual(values = c("0" = "#662700", "3" = "#FFCA99")) +
   scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5"="#DB6D00")) +
   scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
   labs(
     x = "Liana class in drone photos (DP)",
     y = "Mean accuracy per crown",
-    title = "Cross validation (StratifiedGroupKFold) on DP (Illu filter)"
+    title = "Cross validation (StratifiedGroupKFold) on crowns (VNIR filter)",
+    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "%")
   ) +
-  theme(legend.position = "bottom")
+  theme(legend.position = "right")
 
 p3
 
@@ -1499,13 +1527,80 @@ p4 <- ggplot() +
   labs(
     x = "Liana class in drone photos (DP)",
     y = "Liana predicted per crown (%)",
-    title = "Cross validation (StratifiedGroupKFold) on DP (Illu filter)"
-  ) +
-  theme(legend.position = "bottom")
+    title = "Mean liana prediction on all fold tested",
+    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "%"),
+    shape = "Fold", 
+    fill = "Fold"    
+    )+
+  theme(legend.position = "right")
 p4
 
 grid.arrange(p3, p4, ncol = 2)
 
+# p4_fold_plots <- lapply(1:5, function(current_fold) {
+#   fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
+#   
+#   ggplot() +
+#     geom_boxplot(
+#       data = fold_data,
+#       aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+#       fill = NA,
+#       linewidth = 0.8,
+#       show.legend = FALSE
+#     ) +
+#     geom_jitter(
+#       data = fold_data,
+#       aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+#       width = 0.15,
+#       alpha = 0.7,
+#       size = 2.5
+#     ) +
+#     scale_color_manual(values = c("0" = "#662700", "1" = "#CC5500", "2" = "#FF8E33", "3" = "#FFCA99")) +
+#     labs(
+#       x = "Liana class in drone photos (DP)", 
+#       y = "Liana predicted per crown (%)",   
+#       title = paste("Testing on fold", current_fold)
+#     ) +
+#     theme(legend.position = "none")
+# })
+
+p4_fold_plots <- lapply(1:5, function(current_fold) {
+  fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
+  
+  ggplot() +
+    geom_boxplot(
+      data = fold_data,
+      aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+      fill = NA,
+      linewidth = 0.8,
+      show.legend = FALSE
+    ) +
+    geom_jitter(
+      data = fold_data,
+      aes(x = LianaOriginal, y = prediction, fill = factor(fold), shape = factor(fold)),
+      width = 0.15,
+      alpha = 0.7,
+      size = 2.5,
+      color = "black", 
+      stroke = 0.3
+    ) +
+    scale_color_manual(values = c("0" = "#662700", "1" = "#CC5500", "2" = "#FF8E33", "3" = "#FFCA99")) +  
+    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +  
+    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +  
+    labs(
+      x = "Liana class in drone photos (DP)",
+      y = "Liana predicted per crown (%)",
+      title = paste("Testing on fold", current_fold)
+    ) +
+    theme(legend.position = "none") 
+    })
+
+grid.arrange(
+  grobs = c(p4_fold_plots, p4),
+  ncol = 2,
+  top = textGrob("Liana prediction by crown and by fold (NIR filter)",
+                 gp = gpar(fontsize = 12, fontface = "bold"))
+)
 
 #### Confusion matrix (for StratifiedGroupKFold)
 all_true <- unlist(lapply(cv_results, function(x) x$test_data$Liana))
