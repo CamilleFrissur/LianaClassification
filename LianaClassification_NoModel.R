@@ -1151,7 +1151,8 @@ sample_crowns <- sample(c(TRUE, FALSE), nrow(crowns_df), replace=TRUE, prob=c(0.
 train_crowns <- crowns_df[sample_crowns, ]
 test_crowns <- crowns_df[!sample_crowns, ] 
 
-model_crowns <- lda(Liana ~ ., data = train_crowns)
+n_classes <- length(levels(train_crowns$Liana))
+model_crowns <- lda(Liana ~ ., data = train_crowns, prior = rep(1/n_classes, n_classes))
 predictions_crowns <- predict(model_crowns, test_crowns)
 lda_crowns_accuracy <- mean(predictions_crowns$class==test_crowns$Liana)
 lda_crowns_accuracy #0.6187719
@@ -1165,11 +1166,13 @@ ctrl_crowns <- trainControl(
   savePredictions = "final"
 ) 
 
+length(levels(crowns_df$Liana))
 model_cv_crowns <- train(
   x = predictors,
   y = crowns_df$Liana,
   method = "lda",
-  trControl = ctrl_crowns
+  trControl = ctrl_crowns, 
+  prior = rep(1/n_classes, n_classes)
 )
 
 cv_lda_crowns_accuracy <-model_cv_crowns$results$Accuracy 
@@ -1188,7 +1191,8 @@ sample_blob <- sample(c(TRUE, FALSE), nrow(blob_df), replace=TRUE, prob=c(0.7,0.
 train_blob <- blob_df[sample_blob, ]
 test_blob <- blob_df[!sample_blob, ] 
 
-model_blob <- lda(Liana ~ ., data = train_blob)
+n_classes <- length(levels(train_blob$Liana))
+model_blob <- lda(Liana ~ ., data = train_blob, prior = rep(1/n_classes, n_classes))
 predictions_blob <- predict(model_blob, test_blob)
 lda_blob_accuracy <- mean(predictions_blob$class==test_blob$Liana)
 lda_blob_accuracy #0.8671278
@@ -1202,11 +1206,13 @@ ctrl_blob <- trainControl(
   savePredictions = "final"
 ) 
 
+n_classes <-  length(levels(blob_df$Liana))
 model_cv_blob <- train(
   x = predictors,
   y = blob_df$Liana,
   method = "lda",
-  trControl = ctrl_blob
+  trControl = ctrl_blob,
+  prior = rep(1/n_classes, n_classes)
 )
 
 cv_lda_blob_accuracy <-model_cv_blob$results$Accuracy
@@ -1239,7 +1245,8 @@ test_all <- all_df[all_df$Type== 'crowns', ]
 # test_all <- all_df[all_df$Type == 'blob', ]
 # train_all <- all_df[all_df$Type== 'crowns', ]
 
-model_all <- lda(Liana ~ . - Type, data = train_all) # remove Type from predictive values
+n_classes <- length(levels(train_all$Liana))
+model_all <- lda(Liana ~ . - Type, data = train_all, prior = rep(1/n_classes, n_classes)) # remove Type from predictive values
 predictions_all <- predict(model_all, test_all)
 lda_all_accuracy <- mean(predictions_all$class==test_all$Liana)
 lda_all_accuracy 
@@ -1303,6 +1310,7 @@ if (ncol(X_train_filtered) > 1) {
 }
 
 train_data_blob <- data.frame(Liana = train_all_pure$Liana, X_train_filtered)
+n_classes <- length(levels(train_data_blob$Liana))
 model_blob_to_crown <- lda(Liana ~ ., data = train_data_blob, tol = 1e-8)
 
 X_test <- test_all_pure[, band_cols]
@@ -1411,7 +1419,8 @@ for (i in 1:length(folds)) {
   }
   
   train_lda_cv <- data.frame(Liana = train_data$Liana, X_train_filtered_cv)
-  model_cv <- lda(Liana ~ ., data = train_lda_cv, tol = 1e-8)
+  n_classes <- length(levels(train_lda_cv$Liana))
+  model_cv <- lda(Liana ~ ., data = train_lda_cv, tol = 1e-8, prior = rep(1/n_classes, n_classes))
   
   X_test_cv <- test_data[, band_cols_cv]
   X_test_filtered_cv <- X_test_cv[, !constant_cols_cv, drop = FALSE]
@@ -1563,10 +1572,16 @@ grid.arrange(p3, p4, ncol = 2)
 #     ) +
 #     theme(legend.position = "none")
 # })
+accuracy_by_fold <- aggregate(
+  correct ~ fold,
+  data = subset(all_cv_results, LianaOriginal %in% c("0", "3")),
+  FUN = mean
+)
 
 p4_fold_plots <- lapply(1:5, function(current_fold) {
   fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
-  
+  fold_accuracy <- accuracy_by_fold$correct[accuracy_by_fold$fold == current_fold]
+
   ggplot() +
     geom_boxplot(
       data = fold_data,
@@ -1590,7 +1605,8 @@ p4_fold_plots <- lapply(1:5, function(current_fold) {
     labs(
       x = "Liana class in drone photos (DP)",
       y = "Liana predicted per crown (%)",
-      title = paste("Testing on fold", current_fold)
+      title = paste("Testing on fold", current_fold),
+      caption = paste0("Fold mean accuracy = ", round(fold_accuracy * 100, 1), "%")
     ) +
     theme(legend.position = "none") 
     })
@@ -1602,7 +1618,7 @@ grid.arrange(
                  gp = gpar(fontsize = 12, fontface = "bold"))
 )
 
-#### Confusion matrix (for StratifiedGroupKFold)
+#### Confusion matrix (for StratifiedGroupKFold) ##############################
 all_true <- unlist(lapply(cv_results, function(x) x$test_data$Liana))
 all_pred <- unlist(lapply(cv_results, function(x) x$predictions$class))
 
