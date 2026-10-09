@@ -144,7 +144,7 @@ area_blob <- clean_extreme_values_toNA(area_blob)
 ## Removing range & bands with more than 95% na
 filter_good_bands <- function(area, max_na_pct_band = 0.95) {
   wl <- extract_wavelength(names(area))
-  good_bands_idx <- which(wl < 414 | wl > 447 & wl < 1100 | wl > 1140)
+  good_bands_idx <- which(wl < 414 | wl > 447)
   area <- area[[good_bands_idx]]
   
   area_matrix <- as.matrix(area)
@@ -473,11 +473,15 @@ pca_plot_crowns <- data.frame(
 
 ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
+  #scale_color_manual(values = c("0"= "palevioletred4", "1"="palevioletred3","2"="palevioletred1","3"= "pink1"),
+  #scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
+  scale_color_manual(values = c("0"= "#21421e", "1"="#568203","2"="#9acd32","3"= "#c5e384"),
+                     
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "PCA of the HSI values of the drone photos dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns[1], 1), "%)"),
-       y = paste0("Dim 2 (", round(var_exp_crowns[2], 1), "%)"))
+       y = paste0("Dim 2 (", round(var_exp_crowns[2], 1), "%)"))+
+  theme_minimal()
 
 # Only useful if the illumination filter was used
 # pca_plot_crowns$illu <- illu_crowns_valid
@@ -498,7 +502,7 @@ pca_plot_crowns_poly <- data.frame(
 
 ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "#662700", "CR1"="#CC5500","CR2"="#FF8E33","CR3"= "#FFCA99"))+
+  scale_color_manual(values = c("CR0"= "palevioletred4", "CR1"="palevioletred3","CR2"="palevioletred1","CR3"= "pink1"))+
   labs(title= "PCA of the mean spectrum per polygon of the DP dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))
@@ -517,12 +521,13 @@ ggplot(pca_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#006666", "1" = "#99FFFF"),
+    values = c("0" = "#001312", "1" = "#BABABA"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "PCA of the HSI values of the MD dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_blob[1], 1), "%)"),
-       y = paste0("Dim 2 (", round(var_exp_blob[2], 1), "%)"))
+       y = paste0("Dim 2 (", round(var_exp_blob[2], 1), "%)"))+
+  theme_minimal()
 
 # Only with illu filter
 # pca_plot_blob$illu <- illu_blob_valid
@@ -545,7 +550,7 @@ ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() +
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#006666", "1" = "#99FFFF"),
+    values = c("0" = "#001312", "1" = "#BABABA"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "PCA of the mean spectrum per polygon of the MD dataset (Illu filter)",
@@ -570,7 +575,7 @@ tsne_plot_crowns <- data.frame(
 
 ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
+  scale_color_manual(values = c("0"= "palevioletred4", "1"="palevioletred3","2"="palevioletred1","3"= "pink1"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "tSNE of the HSI values of the drone photos dataset (Illu filter)" )
 
@@ -594,7 +599,7 @@ tsne_plot_crowns_poly <- data.frame(
 
 ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+ #(size = 3)
-  scale_color_manual(values = c("CR0"= "#662700", "CR1"="#CC5500","CR2"="#FF8E33","CR3"= "#FFCA99"))+
+  scale_color_manual(values = c("CR0"= "palevioletred4", "CR1"="palevioletred3","CR2"="palevioletred1","CR3"= "pink1"))+
   # scale_color_viridis_d(option="turbo")+
   labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (Illu filter)" )
 
@@ -614,7 +619,7 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#006666", "1" = "#99FFFF"),
+    values = c("0" = "#001312", "1" = "#BABABA"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "tSNE of the HSI values of the MD dataset (Illu filter)" )
@@ -642,7 +647,7 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() + #(size = 3)
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#006666", "1" = "#99FFFF"),
+    values = c("0" = "#001312", "1" = "#BABABA"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (Illu filter)" )
@@ -664,7 +669,7 @@ umap_plot_crowns <- data.frame(
   
 ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
+  scale_color_manual(values = c("0"= "palevioletred4", "1"="palevioletred3","2"="palevioletred1","3"= "pink1"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
   labs(title= "UMAP of the HSI values of the DP dataset (Illu filter)" )
@@ -686,7 +691,7 @@ umap_plot_crowns_poly <- data.frame(
 
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "#662700", "CR1"="#CC5500","CR2"="#FF8E33","CR3"= "#FFCA99"))+
+  scale_color_manual(values = c("CR0"= "palevioletred4", "CR1"="palevioletred3","CR2"="palevioletred1","CR3"= "pink1"))+
   labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (Illu filter)" )
 
 
@@ -704,7 +709,7 @@ ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#006666", "1" = "#99FFFF"),
+    values = c("0" = "#001312", "1" = "#BABABA"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "UMAP of the HSI values of the MD dataset (Illu filter)" )
@@ -729,7 +734,7 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#006666", "1" = "#99FFFF"),
+    values = c("0" = "#001312", "1" = "#BABABA"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (Illu filter)" )
@@ -1125,16 +1130,26 @@ selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1")
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
   display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
-  color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#006666", "#99FFFF")
+  #color = c("palevioletred4", "palevioletred3", "palevioletred1","pink1", "#001312", "#BABABA"),
+  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#001312", "#BABABA"),
+  color = c("#21421e", "#568203", "#9acd32","#c5e384", "#001312", "#BABABA"),
+  
+  linetype = c ("solid","solid","solid","solid", "dotted", "dotted")
+  #linetype = c ("solid","solid","solid","solid", "solid", "solid")
+  
 )
 
-ggplot(selected, aes(x = wavelength, y = reflectance, color = group)) +
+ggplot(selected, aes(x = wavelength, y = reflectance, color = group, linetype = group)) +
   geom_line(linewidth = 1) +
   labs(x = "Wavelength (nm)", y = "Mean reflectance",
-       title = "Mean spectrum by dataset group (NIR filter)", color = "Type") +
+       title = "Mean spectrum by dataset group (NIR filter)", color = "Type", linetype = "Type")+
   scale_color_manual(
     values = setNames(label_config$color, label_config$group),
-    labels = setNames(label_config$display_name, label_config$group))
+    labels = setNames(label_config$display_name, label_config$group))+
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)) +
+  theme_minimal()
 
 # Classification ##############################################################
 
@@ -1334,8 +1349,8 @@ names(accuracy_per_crown_blob)[3] <- "accuracy"
 p1 <- ggplot(accuracy_per_crown_blob, aes(x = LianaOriginal, y = accuracy, fill = LianaOriginal)) +
   geom_boxplot() +
   geom_jitter(width = 0.15, alpha = 0.5) +
-  scale_fill_manual(values = c("0" = "#662700", "1" = "#CC5500",
-                               "2" = "#FF8E33", "3" = "#FFCA99")) +
+  scale_fill_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3",
+                               "2" = "palevioletred1", "3" = "pink1")) +
   labs(x = "Liana class in drone photos (DP)", y = "Mean accuracy per crown",
        title = "LDA trained on MD, tested on DP (Illu filter)") +
   theme(legend.position = "none")
@@ -1356,8 +1371,8 @@ predicted_liana_per_crown_blob$prediction <- predicted_liana_per_crown_blob$pred
 p2 <- ggplot(predicted_liana_per_crown_blob, aes(x = LianaOriginal, y = prediction, fill = LianaOriginal)) +
   geom_boxplot() +
   geom_jitter(width = 0.15, alpha = 0.5) +
-  scale_fill_manual(values = c("0" = "#662700", "1" = "#CC5500",
-                               "2" = "#FF8E33", "3" = "#FFCA99")) +
+  scale_fill_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3",
+                               "2" = "palevioletred1", "3" = "pink1")) +
   labs(x = "Liana class in drone photos (DP)", y = "Liana predicted per crown (%)",
        title = "LDA trained on MD, tested on DP (Illu filter)") +
   theme(legend.position = "none")
@@ -1488,7 +1503,7 @@ p3 <- ggplot() +
     color = "black",
     stroke = 0.3
   ) +
-  scale_color_manual(values = c("0" = "#662700", "3" = "#FFCA99")) +
+  scale_color_manual(values = c("0" = "palevioletred4", "3" = "pink1")) +
   scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5"="#DB6D00")) +
   scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
   labs(
@@ -1530,7 +1545,7 @@ p4 <- ggplot() +
     color = "black",
     stroke = 0.3
   ) +
-  scale_color_manual(values = c("0" = "#662700", "1" = "#CC5500", "2" = "#FF8E33", "3" = "#FFCA99")) +
+  scale_color_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3", "2" = "palevioletred1", "3" = "pink1")) +
   scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5"="#DB6D00")) +
   scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
   labs(
@@ -1564,7 +1579,7 @@ grid.arrange(p3, p4, ncol = 2)
 #       alpha = 0.7,
 #       size = 2.5
 #     ) +
-#     scale_color_manual(values = c("0" = "#662700", "1" = "#CC5500", "2" = "#FF8E33", "3" = "#FFCA99")) +
+#     scale_color_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3", "2" = "palevioletred1", "3" = "pink1")) +
 #     labs(
 #       x = "Liana class in drone photos (DP)", 
 #       y = "Liana predicted per crown (%)",   
@@ -1599,7 +1614,7 @@ p4_fold_plots <- lapply(1:5, function(current_fold) {
       color = "black", 
       stroke = 0.3
     ) +
-    scale_color_manual(values = c("0" = "#662700", "1" = "#CC5500", "2" = "#FF8E33", "3" = "#FFCA99")) +  
+    scale_color_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3", "2" = "palevioletred1", "3" = "pink1")) +  
     scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +  
     scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +  
     labs(
