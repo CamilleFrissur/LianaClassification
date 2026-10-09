@@ -144,7 +144,8 @@ area_blob <- clean_extreme_values_toNA(area_blob)
 ## Removing range & bands with more than 95% na
 filter_good_bands <- function(area, max_na_pct_band = 0.95) {
   wl <- extract_wavelength(names(area))
-  good_bands_idx <- which(wl < 414 | wl > 447)
+  #good_bands_idx <- which(wl < 414 | wl > 447 & wl < 1300 | wl > 1500 & wl < 1800 | wl > 2000)
+  good_bands_idx <- which((wl < 414) | (wl > 447 & wl < 1329.7) | (wl > 1497.9 & wl < 1774.8) | (wl > 1981 & wl < 2361.0))
   area <- area[[good_bands_idx]]
   
   area_matrix <- as.matrix(area)
@@ -1108,10 +1109,14 @@ mean_spectrum_by_group <- function(matrix_valid, labels_valid, dataset_name) {
   wavelengths <- extract_wavelength(colnames(matrix_valid))
   
   spectra_list <- lapply(groups, function(g) {
-    mean_spec <- colMeans(matrix_valid[labels_valid == g, , drop = FALSE], na.rm = TRUE)
+    group_matrix <- matrix_valid[labels_valid == g, , drop = FALSE] 
+    mean_spec <- colMeans(group_matrix, na.rm = TRUE)
+    sd_spec <- apply(group_matrix, 2, sd, na.rm = TRUE) 
+    
     data.frame(
       wavelength = wavelengths,
-      reflectance = mean_spec,
+      mean = mean_spec,
+      sd= sd_spec,
       group = paste0(dataset_name, "_", g)
     )
   })
@@ -1130,25 +1135,63 @@ selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1")
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
   display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
-  #color = c("palevioletred4", "palevioletred3", "palevioletred1","pink1", "#001312", "#BABABA"),
+  color = c("palevioletred4", "palevioletred3", "palevioletred1","pink1", "#001312", "#BABABA"),
   #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#001312", "#BABABA"),
-  color = c("#21421e", "#568203", "#9acd32","#c5e384", "#001312", "#BABABA"),
+  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#001312", "#BABABA"),
   
   linetype = c ("solid","solid","solid","solid", "dotted", "dotted")
   #linetype = c ("solid","solid","solid","solid", "solid", "solid")
   
 )
 
-ggplot(selected, aes(x = wavelength, y = reflectance, color = group, linetype = group)) +
-  geom_line(linewidth = 1) +
-  labs(x = "Wavelength (nm)", y = "Mean reflectance",
-       title = "Mean spectrum by dataset group (NIR filter)", color = "Type", linetype = "Type")+
+add_segments <- function(dt, gap_nm = 8) {
+  dt <- as.data.table(dt)
+  dt[, segment := cumsum(c(TRUE, diff(wavelength) <= 0 | diff(wavelength) > gap_nm)), by = group]
+  dt
+}
+
+selected <- add_segments(selected)
+
+ggplot(selected, aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean - sd,
+      ymax = mean + sd,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = mean,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
   scale_color_manual(
     values = setNames(label_config$color, label_config$group),
-    labels = setNames(label_config$display_name, label_config$group))+
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
   scale_linetype_manual(
     values = setNames(label_config$linetype, label_config$group),
-    labels = setNames(label_config$display_name, label_config$group)) +
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Mean reflectance",
+    title = "Mean spectrum by dataset group (NIR filter) with SD bands",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
   theme_minimal()
 
 # Classification ##############################################################
