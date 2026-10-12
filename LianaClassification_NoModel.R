@@ -175,7 +175,6 @@ common_wl <- sort(common_wl)
 area_crowns <- area_crowns[[which(wl_crowns %in% common_wl)]]
 area_blob   <- area_blob[[which(wl_blob %in% common_wl)]]
 
-## VNIR spectrum smoothing ####
 
 ##VNIR/SWIR sigmoid transition ####
 
@@ -347,54 +346,51 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 
 ## applying/choosing the filter #########################################################
 
-### Illumination 
+# Comment and/or uncomment to choose the right filter
+
+### Illu (median) #################
 illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
 illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
 
-### VNIR (mean) 
-VNIR_crowns_out <- filter_by_vnir(area_crowns, label_crowns)
-VNIR_blob_out <- filter_by_vnir(area_blob, label_blob)
-
-### NIR (20%) 
-NIR_crowns_out <- filter_by_nir(area_crowns, label_crowns)
-NIR_blob_out <- filter_by_nir(area_blob, label_blob)
-
-# Comment and/or uncomment to choose the right filter
-
-### Illu (median) ####
-# crowns_out <-illu_crowns_out
-# blob_out <- illu_blob_out
-# area_crowns_filt <- crowns_out$area_filt
-# label_crowns_filt <- crowns_out$label_filt
+# area_crowns_filt <- illu_crowns_out$area_filt
+# label_crowns_filt <- illu_crowns_out$label_filt
 # area_blob_filt <- illu_blob_out$area_filt
 # label_blob_filt <- illu_blob_out$label_filt
 # illu_crop_crowns <- illu_crowns_out$area_crop
 # illu_crop_blob <- illu_blob_out$area_crop
-######################
 
-### VNIR (mean) ####
-# crowns_out <-VNIR_crowns_out
-# blob_out <- VNIR_blob_out
-# area_crowns_filt <- crowns_out$area_filt
-# label_crowns_filt <- crowns_out$label_filt
-# area_blob_filt <- illu_blob_out$area_filt
-# label_blob_filt <- illu_blob_out$label_filt
+### VNIR (mean) ####################
+VNIR_crowns_out <- filter_by_vnir(area_crowns, label_crowns)
+VNIR_blob_out <- filter_by_vnir(area_blob, label_blob)
+
+# area_crowns_filt <- VNIR_crowns_out$area_filt
+# label_crowns_filt <- VNIR_crowns_out$label_filt
+# area_blob_filt <- VNIR_blob_out$area_filt
+# label_blob_filt <- VNIR_blob_out$label_filt
 # illu_crop_crowns <- area_crowns_filt *0
 # illu_crop_blob <- area_blob_filt * 0
-# ####################
 
-### NIR (20%) ####
-crowns_out <-NIR_crowns_out
-blob_out <- NIR_blob_out
-area_crowns_filt <- crowns_out$area_filt
-label_crowns_filt <- crowns_out$label_filt
-area_blob_filt <- illu_blob_out$area_filt
-label_blob_filt <- illu_blob_out$label_filt
+
+### NIR (20%) ############################
+NIR_crowns_out <- filter_by_nir(area_crowns, label_crowns)
+NIR_blob_out <- filter_by_nir(area_blob, label_blob)
+
+area_crowns_filt <- NIR_crowns_out$area_filt
+label_crowns_filt <- NIR_crowns_out$label_filt
+area_blob_filt <- NIR_blob_out$area_filt
+label_blob_filt <- NIR_blob_out$label_filt
 illu_crop_crowns <- area_crowns_filt *0
 illu_crop_blob <- area_blob_filt * 0
-###################
 
-## Normalization ####
+### No filter #########################
+area_crowns_filt <- area_crowns
+label_crowns_filt <- label_crowns
+area_blob_filt <- area_blob
+label_blob_filt <- label_blob
+illu_crop_crowns <- area_crowns *0
+illu_crop_blob <- area_blob * 0
+
+## Normalization #####################
 area_crowns_filt   <- area_crowns_filt / mean(area_crowns_filt, na.rm = TRUE)
 area_blob_filt <- area_blob_filt / mean(area_blob_filt, na.rm = TRUE)
 
