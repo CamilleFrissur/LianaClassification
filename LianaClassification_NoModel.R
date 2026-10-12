@@ -1,7 +1,9 @@
 # Abbreviations used #############################################
 
 # md: manual delineation (blob dataset)
+## liana infestation 0 or 1
 # dp: drone photos (crowns dataset)
+## liana infestation from CR0 to CR3
 # poly: polygons (opposite to pixel analysis)
 # m : matrix
 
@@ -28,7 +30,7 @@ library(gridExtra)
 ## Set working Directory ####
 setwd ("D:/DataCamille/")
 
-load('Classification_R/LianaClassification/myEnvironment.RData')
+# load('Classification_R/LianaClassification/myEnvironment.RData')
 #ls()
 
 # Uploading data and cropping ##########################################
@@ -168,6 +170,57 @@ common_wl <- sort(common_wl)
 
 area_crowns <- area_crowns[[which(wl_crowns %in% common_wl)]]
 area_blob   <- area_blob[[which(wl_blob %in% common_wl)]]
+
+## VNIR spectrum smoothing ####
+
+##VNIR/SWIR sigmoid transition ####
+
+# apply_sigmoid_transition <- function(area, center = 800, steepness = 0.05) {
+#   # Extraire les longueurs d'onde
+#   wl <- extract_wavelength(names(area))
+#   wl_sorted_order <- order(wl)
+#   area <- area[, wl_sorted_order, drop = FALSE]
+#   wl <- wl[wl_sorted_order]
+#   # Trouver les indices des bandes NIR et SWIR
+#   nir_idx <- max(which(wl <= center))  # Dernière bande <= 800nm
+#   swir_idx <- min(which(wl >= center)) # Première bande >= 800nm
+#   
+#   # Vérification
+#   if (nir_idx >= swir_idx || nir_idx == 0 || swir_idx == 0) {
+#     warning("Aucune transition nécessaire : pas de bandes NIR/SWIR autour de 800nm.")
+#     return(area)
+#   }
+#   
+#   # Fonction sigmoïde
+#   sigmoid <- function(x) 1 / (1 + exp(-steepness * (x - center)))
+#   
+#   # Masque des bandes en transition
+#   transition_mask <- wl >= wl[nir_idx] & wl <= wl[swir_idx]
+#   transition_indices <- which(transition_mask)  # Indices des bandes à modifier
+#   weights <- sigmoid(wl[transition_mask])        # Poids sigmoïdiens
+#   
+#   # Extraire TOUTES les valeurs du raster (matrice : lignes = pixels, colonnes = bandes)
+#   mat <- terra::values(area)
+#   
+#   # Appliquer la transition à chaque bande concernée
+#   for (j in seq_along(transition_indices)) {
+#     i <- transition_indices[j]  # Indice de la bande dans le raster
+#     weight <- weights[j]        # Poids sigmoïdien pour cette bande
+#     
+#     # Interpolation entre NIR (nir_idx) et SWIR (swir_idx)
+#     mat[, i] <- mat[, nir_idx] + (mat[, swir_idx] - mat[, nir_idx]) * weight
+#   }
+#   
+#   # Créer une copie du raster et remplacer ses valeurs
+#   new_area <- area
+#   terra::values(new_area) <- mat
+#   
+#   return(new_area)
+# }
+# 
+# area_crowns <- apply_sigmoid_transition(area_crowns)
+# area_blob <- apply_sigmoid_transition(area_blob)
+
 
 ## Removing pixel based on illu ####
 # Only used with the 2016 data (illu file missing fo 2023)
@@ -343,26 +396,26 @@ area_blob_filt <- area_blob_filt / mean(area_blob_filt, na.rm = TRUE)
 
 ## Correlation (Chi2) between filters ##########################################
 
-### Illumination 
-illu_crowns_out_illu <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
-label_crowns_filt_illu <- illu_crowns_out$label_filt
-
-illu_blob_out_illu <- filter_by_illu(illu, area_blob, label_blob, med_illu)
-label_blob_filt_illu <- illu_blob_out$label_filt
-
-### VNIR (mean) 
-spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
-label_crowns_filt_VNIR <- spec_crowns_filt_VNIR$label_filt
-
-spec_blob_filt_VNIR <- filter_by_vnir(area_blob, label_blob)
-label_blob_filt_VNIR <- spec_blob_filt_VNIR$label_filt
-
-### NIR (20%) 
-spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
-label_crowns_filt_NIR <- spec_crowns_filt_NIR$label_filt
-
-spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
-label_blob_filt_NIR <- spec_blob_filt_NIR$label_filt
+# ### Illumination 
+# illu_crowns_out_illu <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
+# label_crowns_filt_illu <- illu_crowns_out$label_filt
+# 
+# illu_blob_out_illu <- filter_by_illu(illu, area_blob, label_blob, med_illu)
+# label_blob_filt_illu <- illu_blob_out$label_filt
+# 
+# ### VNIR (mean) 
+# spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
+# label_crowns_filt_VNIR <- spec_crowns_filt_VNIR$label_filt
+# 
+# spec_blob_filt_VNIR <- filter_by_vnir(area_blob, label_blob)
+# label_blob_filt_VNIR <- spec_blob_filt_VNIR$label_filt
+# 
+# ### NIR (20%) 
+# spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
+# label_crowns_filt_NIR <- spec_crowns_filt_NIR$label_filt
+# 
+# spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
+# label_blob_filt_NIR <- spec_blob_filt_NIR$label_filt
 
 # Dimensionality reduction and data visualization ###############################
 
@@ -474,9 +527,9 @@ pca_plot_crowns <- data.frame(
 
 ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  #scale_color_manual(values = c("0"= "palevioletred4", "1"="palevioletred3","2"="palevioletred1","3"= "pink1"),
+  scale_color_manual(values = c("0"= "palevioletred4", "1"="palevioletred3","2"="palevioletred1","3"= "pink1"),
   #scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
-  scale_color_manual(values = c("0"= "#21421e", "1"="#568203","2"="#9acd32","3"= "#c5e384"),
+  #scale_color_manual(values = c("0"= "#21421e", "1"="#568203","2"="#9acd32","3"= "#c5e384"),
                      
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "PCA of the HSI values of the drone photos dataset (Illu filter)",
@@ -1689,9 +1742,6 @@ cm_cv <- confusionMatrix(
   positive = "1"
 )
 print(cm_cv) #95% CI [1] = F1-Score
-
-library(tidyr)
-library(ggplot2)
 
 confusion_df_cv <- as.data.frame(confusion_matrix_cv)
 colnames(confusion_df_cv) <- c("True", "Predicted", "Freq")
