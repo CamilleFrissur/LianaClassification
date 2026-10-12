@@ -4,7 +4,7 @@
 ## liana infestation 0 or 1
 # dp: drone photos (crowns dataset)
 ## liana infestation from CR0 to CR3
-# poly: polygons (opposite to pixel analysis)
+# poly: polygons (opink1osite to pixel analysis)
 # m : matrix
 
 # File initialization #############################################
@@ -20,12 +20,16 @@ library(stats)
 library(Rtsne)
 library(ggplot2)
 library(paletteer)
+library(miscTools)
 library(uwot)
 library(FactoMineR)
 library(fpc)
+library(signal)
 library(MASS)
 library(caret)
 library(gridExtra)
+library(grid)
+
 
 ## Set working Directory ####
 setwd ("D:/DataCamille/")
@@ -33,7 +37,7 @@ setwd ("D:/DataCamille/")
 # load('Classification_R/LianaClassification/myEnvironment.RData')
 #ls()
 
-# Uploading data and cropping ##########################################
+# Uploading data and cropink1ing ##########################################
 
 ## HSI mosaic ####
 
@@ -86,7 +90,7 @@ prop.table(table(values(blob)[["Type"]]))
 # Filtering pixels ##########################################################
 extract_wavelength <- function(band_names) {
   
-  wl <- suppressWarnings(as.numeric(band_names))
+  wl <- supink1ressWarnings(as.numeric(band_names))
   need_regex <- is.na(wl)
   wl[need_regex] <- as.numeric(gsub(".*\\(([0-9.]+)\\).*", "\\1", band_names[need_regex]))
   
@@ -104,7 +108,7 @@ clean_extreme_values <- function(area, valid_range = c(0, 10000)) {
   n_total_out <- n_below + n_above
   n_total_values <- sum(!is.na(area_matrix))
   
-  area_clamped <- clamp(area, lower = valid_range[1], upper = valid_range[2], values = TRUE)
+  area_clamped <- clamp(area, lower = valid_range[1], upink1er = valid_range[2], values = TRUE)
   
   list(
     area_clean = area_clamped,
@@ -202,7 +206,7 @@ area_blob   <- area_blob[[which(wl_blob %in% common_wl)]]
 #   # Extraire TOUTES les valeurs du raster (matrice : lignes = pixels, colonnes = bandes)
 #   mat <- terra::values(area)
 #   
-#   # Appliquer la transition à chaque bande concernée
+#   # Apink1liquer la transition à chaque bande concernée
 #   for (j in seq_along(transition_indices)) {
 #     i <- transition_indices[j]  # Indice de la bande dans le raster
 #     weight <- weights[j]        # Poids sigmoïdien pour cette bande
@@ -341,7 +345,7 @@ filter_by_nir <- function(area, label, nir_range = c(780, 900)){
 }
 
 
-## Applying/choosing the filter #########################################################
+## applying/choosing the filter #########################################################
 
 ### Illumination 
 illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
@@ -527,7 +531,7 @@ pca_plot_crowns <- data.frame(
 
 ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "palevioletred4", "1"="palevioletred3","2"="palevioletred1","3"= "pink1"),
+  scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
   #scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
   #scale_color_manual(values = c("0"= "#21421e", "1"="#568203","2"="#9acd32","3"= "#c5e384"),
                      
@@ -556,7 +560,7 @@ pca_plot_crowns_poly <- data.frame(
 
 ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "palevioletred4", "CR1"="palevioletred3","CR2"="palevioletred1","CR3"= "pink1"))+
+  scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
   labs(title= "PCA of the mean spectrum per polygon of the DP dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))
@@ -575,7 +579,7 @@ ggplot(pca_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#001312", "1" = "#BABABA"),
+    values = c("0" = "#666", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "PCA of the HSI values of the MD dataset (Illu filter)",
@@ -604,7 +608,7 @@ ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() +
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#001312", "1" = "#BABABA"),
+    values = c("0" = "#666", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "PCA of the mean spectrum per polygon of the MD dataset (Illu filter)",
@@ -629,7 +633,7 @@ tsne_plot_crowns <- data.frame(
 
 ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "palevioletred4", "1"="palevioletred3","2"="palevioletred1","3"= "pink1"),
+  scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "tSNE of the HSI values of the drone photos dataset (Illu filter)" )
 
@@ -653,7 +657,7 @@ tsne_plot_crowns_poly <- data.frame(
 
 ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+ #(size = 3)
-  scale_color_manual(values = c("CR0"= "palevioletred4", "CR1"="palevioletred3","CR2"="palevioletred1","CR3"= "pink1"))+
+  scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
   # scale_color_viridis_d(option="turbo")+
   labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (Illu filter)" )
 
@@ -673,7 +677,7 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#001312", "1" = "#BABABA"),
+    values = c("0" = "#666", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "tSNE of the HSI values of the MD dataset (Illu filter)" )
@@ -701,7 +705,7 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() + #(size = 3)
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#001312", "1" = "#BABABA"),
+    values = c("0" = "#666", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (Illu filter)" )
@@ -723,7 +727,7 @@ umap_plot_crowns <- data.frame(
   
 ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "palevioletred4", "1"="palevioletred3","2"="palevioletred1","3"= "pink1"),
+  scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
   labs(title= "UMAP of the HSI values of the DP dataset (Illu filter)" )
@@ -745,7 +749,7 @@ umap_plot_crowns_poly <- data.frame(
 
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "palevioletred4", "CR1"="palevioletred3","CR2"="palevioletred1","CR3"= "pink1"))+
+  scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
   labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (Illu filter)" )
 
 
@@ -763,7 +767,7 @@ ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#001312", "1" = "#BABABA"),
+    values = c("0" = "#666", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "UMAP of the HSI values of the MD dataset (Illu filter)" )
@@ -788,7 +792,7 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#001312", "1" = "#BABABA"),
+    values = c("0" = "#666", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (Illu filter)" )
@@ -915,14 +919,14 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
 # 
 #   # par(mfrow = c(2, 3))
 #   # for (i in 1:n_components) {
-#   #   qqnorm(group0[, i], main = paste("Composante", i, "- groupe 0"))
-#   #   qqline(group0[, i])
+#   #   palevioletred1norm(group0[, i], main = paste("Composante", i, "- groupe 0"))
+#   #   palevioletred1line(group0[, i])
 #   # }
 #   #
 #   # par(mfrow = c(2, 3))
 #   # for (i in 1:n_components) {
-#   #   qqnorm(group1[, i], main = paste("Composante", i, "- groupe 1"))
-#   #   qqline(group1[, i])
+#   #   palevioletred1norm(group1[, i], main = paste("Composante", i, "- groupe 1"))
+#   #   palevioletred1line(group1[, i])
 #   # }
 # 
 #   # Calculate mean vectors
@@ -1185,14 +1189,16 @@ all_spectra <- rbind(spec_crowns, spec_blob)
 #selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1") & all_spectra$wavelength<900) #VNIR only
 selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1"))
 
+
+
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
   display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
-  color = c("palevioletred4", "palevioletred3", "palevioletred1","pink1", "#001312", "#BABABA"),
-  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#001312", "#BABABA"),
-  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#001312", "#BABABA"),
+  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "#666", "#001312"),
+  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#666", "#001312"),
+  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#666", "#001312"),
   
-  linetype = c ("solid","solid","solid","solid", "dotted", "dotted")
+  linetype = c ("solid","solid","solid","solid", "solid", "solid")
   #linetype = c ("solid","solid","solid","solid", "solid", "solid")
   
 )
@@ -1205,11 +1211,27 @@ add_segments <- function(dt, gap_nm = 8) {
 
 selected <- add_segments(selected)
 
-ggplot(selected, aes(x = wavelength)) +
+selected_smooth <- as.data.frame(selected)
+selected_smooth$mean_smooth <- selected_smooth$mean
+selected_smooth$sd_smooth   <- selected_smooth$sd
+
+for (g in unique(selected_smooth$group)) {
+  for (s in unique(selected_smooth$segment[selected_smooth$group == g])) {
+    
+    rows <- which(selected_smooth$group == g & selected_smooth$segment == s)
+    
+    if (length(rows) >= 11) {
+      selected_smooth$mean_smooth[rows] <- sgolayfilt(selected_smooth$mean[rows], p = 3, n = 11)
+      selected_smooth$sd_smooth[rows]   <- sgolayfilt(selected_smooth$sd[rows], p = 3, n = 11)
+    }
+  }
+}
+
+ggplot(selected_smooth, aes(x = wavelength)) +
   geom_ribbon(
     aes(
-      ymin = mean - sd,
-      ymax = mean + sd,
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
       group = interaction(group, segment),
       fill = group 
     ),
@@ -1218,7 +1240,7 @@ ggplot(selected, aes(x = wavelength)) +
   ) +
   geom_line(
     aes(
-      y = mean,
+      y = mean_smooth,
       color = group,
       linetype = group,
       group = interaction(group, segment)
@@ -1239,8 +1261,539 @@ ggplot(selected, aes(x = wavelength)) +
   ) +
   labs(
     x = "Wavelength (nm)",
-    y = "Mean reflectance",
-    title = "Mean spectrum by dataset group (NIR filter) with SD bands",
+    y = "Mean normalized reflectance",
+    title = "Spectrum by dataset group (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth, aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = mean_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Mean normalized reflectance",
+    title = "Spectrum by dataset group (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth, aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = mean_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Mean normalized reflectance",
+    title = "Spectrum by dataset group (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = mean_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Mean normalized reflectance",
+    title = "Spectrum by dataset group in the visible region (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelength < 1340,], aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = mean_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Mean normalized reflectance",
+    title = "Spectrum by dataset group in the NIR region (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavelength < 1790,], aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = mean_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Mean normalized reflectance",
+    title = "Spectrum by dataset group in the SWIR 1 region (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+# Median spectrum comparison ###################################################
+
+med_spectrum_by_group <- function(matrix_valid, labels_valid, dataset_name) {
+  groups <- unique(labels_valid)
+  
+  wavelengths <- extract_wavelength(colnames(matrix_valid))
+  
+  spectra_list <- lapply(groups, function(g) {
+    group_matrix <- matrix_valid[labels_valid == g, , drop = FALSE] 
+    med_spec <- colMedians(group_matrix, na.rm = TRUE)
+    sd_spec <- apply(group_matrix, 2, sd, na.rm = TRUE) 
+    
+    data.frame(
+      wavelength = wavelengths,
+      med = med_spec,
+      sd= sd_spec,
+      group = paste0(dataset_name, "_", g)
+    )
+  })
+  
+  do.call(rbind, spectra_list)
+}
+
+spec_crowns <- med_spectrum_by_group(crowns_poly_valid, label_crowns_poly_valid, "DP")
+spec_blob   <- med_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, "MD")
+
+all_spectra <- rbind(spec_crowns, spec_blob)
+
+#selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1") & all_spectra$wavelength<900) #VNIR only
+selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1"))
+
+
+
+label_config <- data.frame(
+  group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
+  display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
+  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "#666", "#001312"),
+  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#666", "#001312"),
+  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#666", "#001312"),
+  
+  linetype = c ("solid","solid","solid","solid", "solid", "solid")
+  #linetype = c ("solid","solid","solid","solid", "solid", "solid")
+  
+)
+
+add_segments <- function(dt, gap_nm = 8) {
+  dt <- as.data.table(dt)
+  dt[, segment := cumsum(c(TRUE, diff(wavelength) <= 0 | diff(wavelength) > gap_nm)), by = group]
+  dt
+}
+
+selected <- add_segments(selected)
+
+selected_smooth <- as.data.frame(selected)
+selected_smooth$med_smooth <- selected_smooth$med
+selected_smooth$sd_smooth   <- selected_smooth$sd
+
+for (g in unique(selected_smooth$group)) {
+  for (s in unique(selected_smooth$segment[selected_smooth$group == g])) {
+    
+    rows <- which(selected_smooth$group == g & selected_smooth$segment == s)
+    
+    if (length(rows) >= 11) {
+      selected_smooth$med_smooth[rows] <- sgolayfilt(selected_smooth$med[rows], p = 3, n = 11)
+      selected_smooth$sd_smooth[rows]   <- sgolayfilt(selected_smooth$sd[rows], p = 3, n = 11)
+    }
+  }
+}
+
+ggplot(selected_smooth, aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = med_smooth - sd_smooth,
+      ymax = med_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = med_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "med normalized reflectance",
+    title = "Spectrum by dataset group (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth, aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = med_smooth - sd_smooth,
+      ymax = med_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = med_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "med normalized reflectance",
+    title = "Spectrum by dataset group (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth, aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = med_smooth - sd_smooth,
+      ymax = med_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = med_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "med normalized reflectance",
+    title = "Spectrum by dataset group (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = med_smooth - sd_smooth,
+      ymax = med_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = med_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "med normalized reflectance",
+    title = "Spectrum by dataset group in the visible region (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelength < 1340,], aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = med_smooth - sd_smooth,
+      ymax = med_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = med_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "med normalized reflectance",
+    title = "Spectrum by dataset group in the NIR region (NIR filter)",
+    color = "Type",
+    linetype = "Type",
+    fill = "Type"  
+  ) +
+  theme_minimal()
+
+ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavelength < 1790,], aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = med_smooth - sd_smooth,
+      ymax = med_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group 
+    ),
+    alpha = 0.2,  
+    color = NA    
+  ) +
+  geom_line(
+    aes(
+      y = med_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(label_config$color, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(label_config$linetype, label_config$group),
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(label_config$color, label_config$group),  
+    labels = setNames(label_config$display_name, label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "med normalized reflectance",
+    title = "Spectrum by dataset group in the SWIR 1 region (NIR filter)",
     color = "Type",
     linetype = "Type",
     fill = "Type"  
@@ -1445,8 +1998,8 @@ names(accuracy_per_crown_blob)[3] <- "accuracy"
 p1 <- ggplot(accuracy_per_crown_blob, aes(x = LianaOriginal, y = accuracy, fill = LianaOriginal)) +
   geom_boxplot() +
   geom_jitter(width = 0.15, alpha = 0.5) +
-  scale_fill_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3",
-                               "2" = "palevioletred1", "3" = "pink1")) +
+  scale_fill_manual(values = c("0" = "pink1", "1" = "palevioletred1",
+                               "2" = "palevioletred3", "3" = "palevioletred4")) +
   labs(x = "Liana class in drone photos (DP)", y = "Mean accuracy per crown",
        title = "LDA trained on MD, tested on DP (Illu filter)") +
   theme(legend.position = "none")
@@ -1467,8 +2020,8 @@ predicted_liana_per_crown_blob$prediction <- predicted_liana_per_crown_blob$pred
 p2 <- ggplot(predicted_liana_per_crown_blob, aes(x = LianaOriginal, y = prediction, fill = LianaOriginal)) +
   geom_boxplot() +
   geom_jitter(width = 0.15, alpha = 0.5) +
-  scale_fill_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3",
-                               "2" = "palevioletred1", "3" = "pink1")) +
+  scale_fill_manual(values = c("0" = "pink1", "1" = "palevioletred1",
+                               "2" = "palevioletred3", "3" = "palevioletred4")) +
   labs(x = "Liana class in drone photos (DP)", y = "Liana predicted per crown (%)",
        title = "LDA trained on MD, tested on DP (Illu filter)") +
   theme(legend.position = "none")
@@ -1599,14 +2152,16 @@ p3 <- ggplot() +
     color = "black",
     stroke = 0.3
   ) +
-  scale_color_manual(values = c("0" = "palevioletred4", "3" = "pink1")) +
+  scale_color_manual(values = c("0" = "pink1", "3" = "palevioletred4")) +
   scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5"="#DB6D00")) +
   scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
   labs(
     x = "Liana class in drone photos (DP)",
     y = "Mean accuracy per crown",
-    title = "Cross validation (StratifiedGroupKFold) on crowns (VNIR filter)",
-    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "%")
+    title = "Cross validation (StratifiedGroupKFold) on crowns (NIR filter)",
+    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "%"),
+    shape = "Fold",
+    fill ="Fold"
   ) +
   theme(legend.position = "right")
 
@@ -1641,7 +2196,7 @@ p4 <- ggplot() +
     color = "black",
     stroke = 0.3
   ) +
-  scale_color_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3", "2" = "palevioletred1", "3" = "pink1")) +
+  scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred1", "2" = "palevioletred3", "3" = "palevioletred4")) +
   scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5"="#DB6D00")) +
   scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
   labs(
@@ -1656,6 +2211,9 @@ p4 <- ggplot() +
 p4
 
 grid.arrange(p3, p4, ncol = 2)
+
+# grid.arrange(p1, p2, p3, p4, ncol = 2)
+
 
 # p4_fold_plots <- lapply(1:5, function(current_fold) {
 #   fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
@@ -1675,7 +2233,7 @@ grid.arrange(p3, p4, ncol = 2)
 #       alpha = 0.7,
 #       size = 2.5
 #     ) +
-#     scale_color_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3", "2" = "palevioletred1", "3" = "pink1")) +
+#     scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred1", "2" = "palevioletred3", "3" = "palevioletred4")) +
 #     labs(
 #       x = "Liana class in drone photos (DP)", 
 #       y = "Liana predicted per crown (%)",   
@@ -1710,7 +2268,7 @@ p4_fold_plots <- lapply(1:5, function(current_fold) {
       color = "black", 
       stroke = 0.3
     ) +
-    scale_color_manual(values = c("0" = "palevioletred4", "1" = "palevioletred3", "2" = "palevioletred1", "3" = "pink1")) +  
+    scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred1", "2" = "palevioletred3", "3" = "palevioletred4")) +  
     scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +  
     scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +  
     labs(
