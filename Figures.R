@@ -6,9 +6,6 @@ library(gridExtra)
 ## Set working Directory ####
 setwd ("D:/DataCamille/")
 
-# load('Classification_R/LianaClassification/myEnvironment.RData')
-#ls()
-
 # Uploading data and cropping ##########################################
 
 ## HSI mosaic ####
@@ -60,17 +57,18 @@ crowns_df$LianaFullC <- as.factor(crowns_df$LianaFullC)
 
 plot_blob <- ggplot() +
   geom_tile(data = blob_df, aes(x, y, fill = Type), alpha = 1) +
-  scale_fill_manual(name = "Type",
-                    values = c("0" = "#001312", "1" = "palevioletred1")) +
+  scale_fill_manual(values = c("0" = "#ABABAB", "1" = "#001312")) +
   theme_minimal() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom")+
+  labs(title="Blob dataset", fill = "Liana")
 
 plot_crowns <- ggplot() +
   geom_tile(data = crowns_df, aes(x, y, fill = LianaFullC), alpha = 1) +
   scale_fill_manual(name = "Liana",
-                    values = c("CR0" = "#001312", "CR1" = "palevioletred1",
-                               "CR2" = "blue", "CR3" = "red")) +
+                    values = c("CR0" = "pink1", "CR1" = "palevioletred1",
+                               "CR2" = "palevioletred3", "CR3" = "palevioletred4")) +
   theme_minimal() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom")+
+  labs(title = "Crowns dataset")
 
 grid.arrange(plot_blob, plot_crowns, ncol = 2)
