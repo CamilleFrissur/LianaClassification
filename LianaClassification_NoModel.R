@@ -4,7 +4,7 @@
 ## liana infestation 0 or 1
 # dp: drone photos (crowns dataset)
 ## liana infestation from CR0 to CR3
-# poly: polygons (opink1osite to pixel analysis)
+# poly: polygons (opposite to pixel analysis)
 # m : matrix
 
 # File initialization #############################################
@@ -37,7 +37,7 @@ setwd ("D:/DataCamille/")
 # load('Classification_R/LianaClassification/myEnvironment.RData')
 #ls()
 
-# Uploading data and cropink1ing ##########################################
+# Uploading data and cropping ##########################################
 
 ## HSI mosaic ####
 
@@ -90,7 +90,7 @@ prop.table(table(values(blob)[["Type"]]))
 # Filtering pixels ##########################################################
 extract_wavelength <- function(band_names) {
   
-  wl <- supink1ressWarnings(as.numeric(band_names))
+  wl <- suppressWarnings(as.numeric(band_names))
   need_regex <- is.na(wl)
   wl[need_regex] <- as.numeric(gsub(".*\\(([0-9.]+)\\).*", "\\1", band_names[need_regex]))
   
@@ -108,7 +108,7 @@ clean_extreme_values <- function(area, valid_range = c(0, 10000)) {
   n_total_out <- n_below + n_above
   n_total_values <- sum(!is.na(area_matrix))
   
-  area_clamped <- clamp(area, lower = valid_range[1], upink1er = valid_range[2], values = TRUE)
+  area_clamped <- clamp(area, lower = valid_range[1], upper = valid_range[2], values = TRUE)
   
   list(
     area_clean = area_clamped,
@@ -174,55 +174,6 @@ common_wl <- sort(common_wl)
 
 area_crowns <- area_crowns[[which(wl_crowns %in% common_wl)]]
 area_blob   <- area_blob[[which(wl_blob %in% common_wl)]]
-
-
-##VNIR/SWIR sigmoid transition ####
-
-# apply_sigmoid_transition <- function(area, center = 800, steepness = 0.05) {
-#   # Extraire les longueurs d'onde
-#   wl <- extract_wavelength(names(area))
-#   wl_sorted_order <- order(wl)
-#   area <- area[, wl_sorted_order, drop = FALSE]
-#   wl <- wl[wl_sorted_order]
-#   # Trouver les indices des bandes NIR et SWIR
-#   nir_idx <- max(which(wl <= center))  # Dernière bande <= 800nm
-#   swir_idx <- min(which(wl >= center)) # Première bande >= 800nm
-#   
-#   # Vérification
-#   if (nir_idx >= swir_idx || nir_idx == 0 || swir_idx == 0) {
-#     warning("Aucune transition nécessaire : pas de bandes NIR/SWIR autour de 800nm.")
-#     return(area)
-#   }
-#   
-#   # Fonction sigmoïde
-#   sigmoid <- function(x) 1 / (1 + exp(-steepness * (x - center)))
-#   
-#   # Masque des bandes en transition
-#   transition_mask <- wl >= wl[nir_idx] & wl <= wl[swir_idx]
-#   transition_indices <- which(transition_mask)  # Indices des bandes à modifier
-#   weights <- sigmoid(wl[transition_mask])        # Poids sigmoïdiens
-#   
-#   # Extraire TOUTES les valeurs du raster (matrice : lignes = pixels, colonnes = bandes)
-#   mat <- terra::values(area)
-#   
-#   # Apink1liquer la transition à chaque bande concernée
-#   for (j in seq_along(transition_indices)) {
-#     i <- transition_indices[j]  # Indice de la bande dans le raster
-#     weight <- weights[j]        # Poids sigmoïdien pour cette bande
-#     
-#     # Interpolation entre NIR (nir_idx) et SWIR (swir_idx)
-#     mat[, i] <- mat[, nir_idx] + (mat[, swir_idx] - mat[, nir_idx]) * weight
-#   }
-#   
-#   # Créer une copie du raster et remplacer ses valeurs
-#   new_area <- area
-#   terra::values(new_area) <- mat
-#   
-#   return(new_area)
-# }
-# 
-# area_crowns <- apply_sigmoid_transition(area_crowns)
-# area_blob <- apply_sigmoid_transition(area_blob)
 
 
 ## Removing pixel based on illu ####
@@ -1156,6 +1107,32 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
 
 # Mean spectrum comparison ###################################################
 
+sensor_to_keep <- function(matrix_valid, keep_sensor_in_overlap = c("swir", "vnir")) {
+  
+  keep_sensor_in_overlap <- match.arg(keep_sensor_in_overlap)
+  wl <- extract_wavelength(colnames(matrix_valid))
+  
+  break_idx <- which(diff(wl) < 0)[1]       
+  
+  if (is.na(break_idx)) return(matrix_valid)
+  vnir_idx <- 1:break_idx
+  swir_idx <- (break_idx + 1):length(wl)
+  
+  overlap_min <- wl[swir_idx[1]]
+  overlap_max <- wl[break_idx]
+  
+  if (keep_sensor_in_overlap == "swir") {
+    drop_idx <- vnir_idx[wl[vnir_idx] >= overlap_min]   
+  } else {
+    drop_idx <- swir_idx[wl[swir_idx] <= overlap_max]    
+  }
+  
+  keep_overlap <- !(seq_along(wl) %in% drop_idx)
+  
+
+  matrix_valid <- matrix_valid[,which(keep_overlap), drop = FALSE]
+}
+
 mean_spectrum_by_group <- function(matrix_valid, labels_valid, dataset_name) {
   groups <- unique(labels_valid)
 
@@ -1177,6 +1154,10 @@ mean_spectrum_by_group <- function(matrix_valid, labels_valid, dataset_name) {
   do.call(rbind, spectra_list)
 }
   
+crowns_poly_valid <- sensor_to_keep(crowns_poly_valid, "swir")
+blob_poly_valid <- sensor_to_keep(blob_poly_valid, "swir")
+
+
 spec_crowns <- mean_spectrum_by_group(crowns_poly_valid, label_crowns_poly_valid, "DP")
 spec_blob   <- mean_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, "MD")
 
@@ -1229,10 +1210,11 @@ ggplot(selected_smooth, aes(x = wavelength)) +
       ymin = mean_smooth - sd_smooth,
       ymax = mean_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
+      fill = group,
+      colour = group
     ),
-    alpha = 0.2,  
-    color = NA    
+    alpha = 0.2,
+    linetype = 2
   ) +
   geom_line(
     aes(
@@ -1265,89 +1247,6 @@ ggplot(selected_smooth, aes(x = wavelength)) +
   ) +
   theme_minimal()
 
-ggplot(selected_smooth, aes(x = wavelength)) +
-  geom_ribbon(
-    aes(
-      ymin = mean_smooth - sd_smooth,
-      ymax = mean_smooth + sd_smooth,
-      group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
-  ) +
-  geom_line(
-    aes(
-      y = mean_smooth,
-      color = group,
-      linetype = group,
-      group = interaction(group, segment)
-    ),
-    linewidth = 1
-  ) +
-  scale_color_manual(
-    values = setNames(label_config$color, label_config$group),
-    labels = setNames(label_config$display_name, label_config$group)
-  ) +
-  scale_linetype_manual(
-    values = setNames(label_config$linetype, label_config$group),
-    labels = setNames(label_config$display_name, label_config$group)
-  ) +
-  scale_fill_manual(
-    values = setNames(label_config$color, label_config$group),  
-    labels = setNames(label_config$display_name, label_config$group)
-  ) +
-  labs(
-    x = "Wavelength (nm)",
-    y = "Mean normalized reflectance",
-    title = "Spectrum by dataset group (NIR filter)",
-    color = "Type",
-    linetype = "Type",
-    fill = "Type"  
-  ) +
-  theme_minimal()
-
-ggplot(selected_smooth, aes(x = wavelength)) +
-  geom_ribbon(
-    aes(
-      ymin = mean_smooth - sd_smooth,
-      ymax = mean_smooth + sd_smooth,
-      group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
-  ) +
-  geom_line(
-    aes(
-      y = mean_smooth,
-      color = group,
-      linetype = group,
-      group = interaction(group, segment)
-    ),
-    linewidth = 1
-  ) +
-  scale_color_manual(
-    values = setNames(label_config$color, label_config$group),
-    labels = setNames(label_config$display_name, label_config$group)
-  ) +
-  scale_linetype_manual(
-    values = setNames(label_config$linetype, label_config$group),
-    labels = setNames(label_config$display_name, label_config$group)
-  ) +
-  scale_fill_manual(
-    values = setNames(label_config$color, label_config$group),  
-    labels = setNames(label_config$display_name, label_config$group)
-  ) +
-  labs(
-    x = "Wavelength (nm)",
-    y = "Mean normalized reflectance",
-    title = "Spectrum by dataset group (NIR filter)",
-    color = "Type",
-    linetype = "Type",
-    fill = "Type"  
-  ) +
-  theme_minimal()
 
 ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) +
   geom_ribbon(
@@ -1355,10 +1254,10 @@ ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) 
       ymin = mean_smooth - sd_smooth,
       ymax = mean_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
+      fill = group,
+      colour = group),
+    alpha = 0.2,
+    linetype = 2 
   ) +
   geom_line(
     aes(
@@ -1397,10 +1296,10 @@ ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelen
       ymin = mean_smooth - sd_smooth,
       ymax = mean_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
+      fill = group ,
+      colour = group),
+    alpha = 0.2,
+    linetype = 2 
   ) +
   geom_line(
     aes(
@@ -1439,10 +1338,10 @@ ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavele
       ymin = mean_smooth - sd_smooth,
       ymax = mean_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
+      fill = group,
+      colour = group),
+    alpha = 0.2,
+    linetype = 2 
   ) +
   geom_line(
     aes(
@@ -1550,10 +1449,10 @@ ggplot(selected_smooth, aes(x = wavelength)) +
       ymin = med_smooth - sd_smooth,
       ymax = med_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
+      fill = group,
+      colour = group),
+    alpha = 0.2,
+    linetype = 2 
   ) +
   geom_line(
     aes(
@@ -1592,10 +1491,10 @@ ggplot(selected_smooth, aes(x = wavelength)) +
       ymin = med_smooth - sd_smooth,
       ymax = med_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
+      fill = group,
+      colour = group),
+    alpha = 0.2,
+    linetype = 2 
   ) +
   geom_line(
     aes(
@@ -1634,10 +1533,10 @@ ggplot(selected_smooth, aes(x = wavelength)) +
       ymin = med_smooth - sd_smooth,
       ymax = med_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
+      fill = group,
+      colour = group),
+    alpha = 0.2,
+    linetype = 2 
   ) +
   geom_line(
     aes(
@@ -1676,10 +1575,10 @@ ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) 
       ymin = med_smooth - sd_smooth,
       ymax = med_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
+      fill = group,
+      colour = group),
+    alpha = 0.2,
+    linetype = 2 
   ) +
   geom_line(
     aes(
@@ -1718,10 +1617,10 @@ ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelen
       ymin = med_smooth - sd_smooth,
       ymax = med_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
+      fill = group,
+      colour = group),
+    alpha = 0.2,
+    linetype = 2 
   ) +
   geom_line(
     aes(
@@ -1760,10 +1659,10 @@ ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavele
       ymin = med_smooth - sd_smooth,
       ymax = med_smooth + sd_smooth,
       group = interaction(group, segment),
-      fill = group 
-    ),
-    alpha = 0.2,  
-    color = NA    
+      fill = group,
+      colour = group),
+    alpha = 0.2,
+    linetype = 2 
   ) +
   geom_line(
     aes(
