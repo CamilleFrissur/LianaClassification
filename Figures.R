@@ -37,7 +37,7 @@ blob_df <- as.data.frame(label_blob, xy = TRUE, na.rm = TRUE) %>%mutate(dataset 
 
 crowns_df <- as.data.frame(label_crowns, xy = TRUE, na.rm = TRUE) %>%  mutate(dataset = "crowns (DP)")
 
-plot_df <- bind_rows
+plot_df <- bind_rows (blob_df, crowns_df)
 plot_df$LianaFullC <- as.factor(plot_df$LianaFullC)
 plot_df$Liana <- ifelse(is.na(plot_df$Type), as.character(plot_df$LianaFullC),
                         ifelse(is.na(plot_df$LianaFullC), plot_df$Type,
