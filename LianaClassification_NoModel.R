@@ -347,26 +347,49 @@ area_blob_filt <- area_blob_filt / mean(area_blob_filt, na.rm = TRUE)
 
 ## Correlation (Chi2) between filters ##########################################
 
-# ### Illumination 
-# illu_crowns_out_illu <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
-# label_crowns_filt_illu <- illu_crowns_out$label_filt
-# 
-# illu_blob_out_illu <- filter_by_illu(illu, area_blob, label_blob, med_illu)
-# label_blob_filt_illu <- illu_blob_out$label_filt
-# 
-# ### VNIR (mean) 
-# spec_crowns_filt_VNIR <- filter_by_vnir(area_crowns, label_crowns)
-# label_crowns_filt_VNIR <- spec_crowns_filt_VNIR$label_filt
-# 
-# spec_blob_filt_VNIR <- filter_by_vnir(area_blob, label_blob)
-# label_blob_filt_VNIR <- spec_blob_filt_VNIR$label_filt
-# 
-# ### NIR (20%) 
-# spec_crowns_filt_NIR <- filter_by_nir(area_crowns, label_crowns)
-# label_crowns_filt_NIR <- spec_crowns_filt_NIR$label_filt
-# 
-# spec_blob_filt_NIR <- filter_by_nir(area_blob, label_blob)
-# label_blob_filt_NIR <- spec_blob_filt_NIR$label_filt
+run_chi2 <- function(pixels1, pixels2, name1, name2) {
+  tab <- table(pixels1, pixels2)
+  test <- chisq.test(tab)
+  cat(sprintf("\n--- %s vs %s ---\n", name1, name2))
+  cat(sprintf("Chi² = %.4f, df = %d, p-value = %.4f\n",
+              test$statistic, test$parameter, test$p.value))
+  if (test$p.value < 0.05) {
+    cat("→ The filters target different pixels (p < 0.05).\n")
+  } else {
+    cat("→ No significant difference (p >= 0.05).\n")
+  }
+}
+
+### Blob dataset
+reference_blob <- area_blob
+
+mask_valid_blob <- !is.na(as.matrix(reference_blob[[1]]))  
+
+pixels_illu_blob <- as.matrix(illu_blob_out$label_filt)[mask_valid_blob]
+pixels_nir_blob  <- as.matrix(NIR_blob_out$label_filt)[mask_valid_blob]
+pixels_vnir_blob <- as.matrix(VNIR_blob_out$label_filt)[mask_valid_blob]
+
+stopifnot(length(pixels_illu_blob) == length(pixels_nir_blob), length(pixels_illu_blob) == length(pixels_vnir_blob))
+
+run_chi2(pixels_illu_blob, pixels_nir_blob, "illu", "NIR")
+run_chi2(pixels_nir_blob, pixels_vnir_blob, "NIR", "VNIR")
+run_chi2(pixels_vnir_blob, pixels_illu_blob, "VNIR", "illu")
+
+### Crowns dataset
+reference_crowns <- area_crowns
+
+mask_valid_crowns <- !is.na(as.matrix(reference_crowns[[1]]))  
+
+pixels_illu_crowns <- as.matrix(illu_crowns_out$label_filt)[mask_valid_crowns]
+pixels_nir_crowns  <- as.matrix(NIR_crowns_out$label_filt)[mask_valid_crowns]
+pixels_vnir_crowns <- as.matrix(VNIR_crowns_out$label_filt)[mask_valid_crowns]
+
+stopifnot(length(pixels_illu_crowns) == length(pixels_nir_crowns), length(pixels_illu_crowns) == length(pixels_vnir_crowns))
+
+run_chi2(pixels_illu_crowns, pixels_nir_crowns, "illu", "NIR")
+run_chi2(pixels_nir_crowns, pixels_vnir_crowns, "NIR", "VNIR")
+run_chi2(pixels_vnir_crowns, pixels_illu_crowns, "VNIR", "illu")
+
 
 # Dimensionality reduction and data visualization ###############################
 
@@ -1943,13 +1966,13 @@ stratified_group_kfold <- function(data, group_col, stratify_col, k = 5, seed = 
   lapply(folds, function(groups) which(data[[group_col]] %in% groups))
 }
 
-
+#### For crowns ####
 set.seed(123)
-folds <- stratified_group_kfold(crowns_df_pure, "poly_id", "Liana", k = 5)
+folds_crowns <- stratified_group_kfold(crowns_df_pure, "poly_id", "Liana", k = 5)
 
 cv_results <- list()
-for (i in 1:length(folds)) {  
-  test_indices <- folds[[i]]  
+for (i in 1:length(folds_crowns)) {  
+  test_indices <- folds_crowns[[i]]  
   train_indices <- setdiff(1:nrow(crowns_df_pure), test_indices) 
   
   train_data <- crowns_df_pure[train_indices, ]
@@ -2109,33 +2132,6 @@ grid.arrange(p3, p4, ncol = 2)
 
 # grid.arrange(p1, p2, p3, p4, ncol = 2)
 
-
-# p4_fold_plots <- lapply(1:5, function(current_fold) {
-#   fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
-#   
-#   ggplot() +
-#     geom_boxplot(
-#       data = fold_data,
-#       aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
-#       fill = NA,
-#       linewidth = 0.8,
-#       show.legend = FALSE
-#     ) +
-#     geom_jitter(
-#       data = fold_data,
-#       aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
-#       width = 0.15,
-#       alpha = 0.7,
-#       size = 2.5
-#     ) +
-#     scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred1", "2" = "palevioletred3", "3" = "palevioletred4")) +
-#     labs(
-#       x = "Liana class in drone photos (DP)", 
-#       y = "Liana predicted per crown (%)",   
-#       title = paste("Testing on fold", current_fold)
-#     ) +
-#     theme(legend.position = "none")
-# })
 accuracy_by_fold <- aggregate(
   correct ~ fold,
   data = subset(all_cv_results, LianaOriginal %in% c("0", "3")),
@@ -2182,6 +2178,11 @@ grid.arrange(
                  gp = gpar(fontsize = 12, fontface = "bold"))
 )
 
+#### For blob ####
+set.seed(123)
+folds_blob <- stratified_group_kfold(blob_df_pure, "poly_id", "Liana", k = 5)
+
+
 #### Confusion matrix (for StratifiedGroupKFold) ##############################
 all_true <- unlist(lapply(cv_results, function(x) x$test_data$Liana))
 all_pred <- unlist(lapply(cv_results, function(x) x$predictions$class))
@@ -2207,10 +2208,4 @@ ggplot(confusion_df_cv, aes(x = True, y = Predicted, fill = Freq)) +
   theme_minimal()
 
 save.image(file = file.path("Classification_R", "LianaClassification", "myEnvironment.RData"))
-
-# Source - https://stackoverflow.com/a/57153733
-# Posted by Ma Ba
-# Retrieved 2026-09-22, License - CC BY-SA 4.0
-
-# install.packages('RColorBrewer')
 
