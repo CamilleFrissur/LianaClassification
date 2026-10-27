@@ -125,8 +125,8 @@ clean_extreme_values_toNA <- function(area, valid_range = c(0, 10000)) {
   
   cat("Number of pixel out of range:", (sum(n_below)+sum(n_above)), "\n")
 
-  area[area < valid_range[1]] <- NA
-  area[area > valid_range[2]] <- NA
+  area[area < valid_range[1]] <- valid_range[1]
+  area[area > valid_range[2]] <- valid_range[2]
   return(area)
 }
 
@@ -334,12 +334,12 @@ illu_crop_crowns <- area_crowns_filt *0
 illu_crop_blob <- area_blob_filt * 0
 
 ### No filter #########################
-area_crowns_filt <- area_crowns
-label_crowns_filt <- label_crowns
-area_blob_filt <- area_blob
-label_blob_filt <- label_blob
-illu_crop_crowns <- area_crowns *0
-illu_crop_blob <- area_blob * 0
+# area_crowns_filt <- area_crowns
+# label_crowns_filt <- label_crowns
+# area_blob_filt <- area_blob
+# label_blob_filt <- label_blob
+# illu_crop_crowns <- area_crowns *0
+# illu_crop_blob <- area_blob * 0
 
 ## Normalization #####################
 area_crowns_filt   <- area_crowns_filt / mean(area_crowns_filt, na.rm = TRUE)
@@ -533,7 +533,8 @@ ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
   labs(title= "PCA of the mean spectrum per polygon of the DP dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
-       y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))
+       y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))+
+  theme_minimal()
 
 ## For MD per pixel
 pca_out_blob <- PCA(blob_filt_valid, scale.unit = TRUE, graph = FALSE)
@@ -549,7 +550,7 @@ ggplot(pca_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#666", "1" = "#001312"),
+    values = c("0" = "#ABABAB", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "PCA of the HSI values of the MD dataset (Illu filter)",
@@ -578,12 +579,13 @@ ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() +
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#666", "1" = "#001312"),
+    values = c("0" = "#ABABAB", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "PCA of the mean spectrum per polygon of the MD dataset (Illu filter)",
        x = paste0("Dim 1 (", round(var_exp_blob_poly[1], 1), "%)"),
-       y = paste0("Dim 2 (", round(var_exp_blob_poly[2], 1), "%)"))
+       y = paste0("Dim 2 (", round(var_exp_blob_poly[2], 1), "%)"))+
+  theme_minimal()
 
 
 ## t-SNE #######################################################################
@@ -605,7 +607,8 @@ ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "tSNE of the HSI values of the drone photos dataset (Illu filter)" )
+  labs(title= "tSNE of the HSI values of the drone photos dataset (Illu filter)" )+
+  theme_minimal()
 
 # Only useful if the illumination filter was used
 # tsne_plot_crowns$illu <- illu_crowns_valid
@@ -629,7 +632,8 @@ ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+ #(size = 3)
   scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (Illu filter)" )
+  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (Illu filter)" )+
+  theme_minimal()
 
 ## For MD per pixel
 # perplexity_blob = (nrow(blob_filt_valid)-1)/3 - 1
@@ -647,10 +651,11 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#666", "1" = "#001312"),
+    values = c("0" = "#ABABAB", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "tSNE of the HSI values of the MD dataset (Illu filter)" )
+  labs(title= "tSNE of the HSI values of the MD dataset (Illu filter)" )+
+  theme_minimal()
 
 # Only with illu filter
 # tsne_plot_blob$illu <- illu_blob_valid
@@ -675,10 +680,11 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() + #(size = 3)
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#666", "1" = "#001312"),
+    values = c("0" = "#ABABAB", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (Illu filter)" )
+  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (Illu filter)" )+
+  theme_minimal()
 
 
 ## UMAP #########################################################################
@@ -700,7 +706,8 @@ ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "UMAP of the HSI values of the DP dataset (Illu filter)" )
+  labs(title= "UMAP of the HSI values of the DP dataset (Illu filter)" )+
+  theme_minimal()
 
 # Only with illu filter
 # umap_plot_crowns$illu <- illu_crowns_valid
@@ -720,7 +727,8 @@ umap_plot_crowns_poly <- data.frame(
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
-  labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (Illu filter)" )
+  labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (Illu filter)" )+
+  theme_minimal()
 
 
 #For MD per pixel
@@ -737,10 +745,11 @@ ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#666", "1" = "#001312"),
+    values = c("0" = "#ABABAB", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the HSI values of the MD dataset (Illu filter)" )
+  labs(title= "UMAP of the HSI values of the MD dataset (Illu filter)" )+
+  theme_minimal()
 
 # Only with illu filter
 # umap_plot_blob$illu <- illu_blob_valid
@@ -762,10 +771,11 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#666", "1" = "#001312"),
+    values = c("0" = "#ABABAB", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (Illu filter)" )
+  labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (Illu filter)" )+
+  theme_minimal()
 
 # # Bhattacharyya distance ###################################################
 # 
@@ -1193,10 +1203,10 @@ selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1")
 
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
-  display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
-  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "#666", "#001312"),
-  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#666", "#001312"),
-  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#666", "#001312"),
+  display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "MD0 (No Liana MD)", "MD1 ( Liana MD)"),
+  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "#ABABAB", "#001312"),
+  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#ABABAB", "#001312"),
+  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#ABABAB", "#001312"),
   
   linetype = c ("solid","solid","solid","solid", "solid", "solid")
   #linetype = c ("solid","solid","solid","solid", "solid", "solid")
@@ -1397,6 +1407,230 @@ ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavele
   ) +
   theme_minimal()
 
+## Difference in mean spectrum ####
+
+cr0 <- subset(selected, group == "DP_CR0")
+cr3 <- subset(selected, group == "DP_CR3")
+md0 <- subset(selected, group == "MD_0")
+md1 <- subset(selected, group == "MD_1")
+
+diff_cr <- merge(cr0, cr3, by = "wavelength", suffixes = c("_cr0", "_cr3"))
+diff_cr$mean <- diff_cr$mean_cr3 - diff_cr$mean_cr0
+diff_cr$sd <- sqrt(diff_cr$sd_cr0^2 + diff_cr$sd_cr3^2) 
+diff_cr$group <- "CR3 - CR0"
+
+diff_md <- merge(md0, md1, by = "wavelength", suffixes = c("_md0", "_md1"))
+diff_md$mean <- diff_md$mean_md1 - diff_md$mean_md0
+diff_md$sd <- sqrt(diff_md$sd_md0^2 + diff_md$sd_md1^2)
+diff_md$group <- "MD1 - MD0"
+
+diff_spectra <- rbind(
+  diff_cr[, c("wavelength", "mean", "sd", "group")],
+  diff_md[, c("wavelength", "mean", "sd", "group")]
+)
+
+diff_spectra <- add_segments(diff_spectra, gap_nm = 8)
+
+diff_spectra_smooth <- as.data.frame(diff_spectra)
+diff_spectra_smooth$mean_smooth <- diff_spectra_smooth$mean
+diff_spectra_smooth$sd_smooth <- diff_spectra_smooth$sd
+
+for (g in unique(diff_spectra_smooth$group)) {
+  for (s in unique(diff_spectra_smooth$segment[diff_spectra_smooth$group == g])) {
+    rows <- which(diff_spectra_smooth$group == g & diff_spectra_smooth$segment == s)
+    if (length(rows) >= 11) {
+      diff_spectra_smooth$mean_smooth[rows] <- sgolayfilt(diff_spectra_smooth$mean[rows], p = 3, n = 11)
+      diff_spectra_smooth$sd_smooth[rows]   <- sgolayfilt(diff_spectra_smooth$sd[rows], p = 3, n = 11)
+    }
+  }
+}
+
+diff_label_config <- data.frame(
+  group = c("CR3 - CR0", "MD1 - MD0"),
+  display_name = c("CR3 - CR0", "MD1 - MD0"),
+  color = c("palevioletred1", "#001312"), 
+  linetype = c("solid", "solid")
+)
+
+ggplot(diff_spectra_smooth, aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group,
+      colour = group
+    ),
+    alpha = 0.2,
+    linetype = 2
+  ) +
+  geom_line(
+    aes(
+      y = mean_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(diff_label_config$color, diff_label_config$group),
+    labels = setNames(diff_label_config$display_name, diff_label_config$group)
+  ) +
+  scale_linetype_manual(
+    values = setNames(diff_label_config$linetype, diff_label_config$group),
+    labels = setNames(diff_label_config$display_name, diff_label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(diff_label_config$color, diff_label_config$group),
+    labels = setNames(diff_label_config$display_name, diff_label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Difference in normalized reflectance",
+    title = "Spectrum difference by group (CR3-CR0 and MD1-MD0, NIR filter)",
+    color = "Difference (Liana - No liana)",
+    linetype = "Difference (Liana - No liana)",
+    fill = "Difference (Liana - No liana)"
+  ) +
+  theme_minimal() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.5)  
+
+# Visible region plot
+ggplot(diff_spectra_smooth[diff_spectra_smooth$wavelength < 690, ], aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group,
+      colour = group
+    ),
+    alpha = 0.2,
+    linetype = 2
+  ) +
+  geom_line(
+    aes(
+      y = mean_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(diff_label_config$color, diff_label_config$group),
+    labels = setNames(diff_label_config$display_name, diff_label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(diff_label_config$color, diff_label_config$group),
+    labels = setNames(diff_label_config$display_name, diff_label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Difference in normalized reflectance",
+    title = "Spectrum difference in the visible region (NIR filter)",
+    color = "Difference (Liana - No Liana)",
+    fill = "Difference (Liana - No Liana)"
+  ) +
+  theme_minimal() +
+  guides(
+    color = guide_legend(title = "Difference"),
+    fill = "none",
+    linetype = "none"
+  )+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.5)
+
+# NIR plot
+ggplot(diff_spectra_smooth[diff_spectra_smooth$wavelength > 700 & diff_spectra_smooth$wavelength < 1340, ], aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group,
+      colour = group
+    ),
+    alpha = 0.2,
+    linetype = 2
+  ) +
+  geom_line(
+    aes(
+      y = mean_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(diff_label_config$color, diff_label_config$group),
+    labels = setNames(diff_label_config$display_name, diff_label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(diff_label_config$color, diff_label_config$group),
+    labels = setNames(diff_label_config$display_name, diff_label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Difference in normalized reflectance",
+    title = "Spectrum difference in the NIR region (NIR filter)",
+    color = "Difference (Liana - No Liana)",
+    fill = "Difference (Liana - No Liana)"
+  ) +
+  theme_minimal()+
+  guides(
+    color = guide_legend(title = "Difference"),
+    fill = "none",
+    linetype = "none"
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.5)
+
+# SWIR1 plot
+ggplot(diff_spectra_smooth[diff_spectra_smooth$wavelength > 1420 & diff_spectra_smooth$wavelength < 1790, ], aes(x = wavelength)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_smooth - sd_smooth,
+      ymax = mean_smooth + sd_smooth,
+      group = interaction(group, segment),
+      fill = group,
+      colour = group
+    ),
+    alpha = 0.2,
+    linetype = 2
+  ) +
+  geom_line(
+    aes(
+      y = mean_smooth,
+      color = group,
+      linetype = group,
+      group = interaction(group, segment)
+    ),
+    linewidth = 1
+  ) +
+  scale_color_manual(
+    values = setNames(diff_label_config$color, diff_label_config$group),
+    labels = setNames(diff_label_config$display_name, diff_label_config$group)
+  ) +
+  scale_fill_manual(
+    values = setNames(diff_label_config$color, diff_label_config$group),
+    labels = setNames(diff_label_config$display_name, diff_label_config$group)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Difference in normalized reflectance",
+    title = "Spectrum difference in the SWIR 1 region (NIR filter)",
+    color = "Difference (Liana - No Liana)",
+    fill = "Difference (Liana - No Liana)"
+  ) +
+  theme_minimal() +
+  guides(
+    color = guide_legend(title = "Difference"),
+    fill = "none",
+    linetype = "none"
+  )+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.5)
+
 # Median spectrum comparison ###################################################
 
 med_spectrum_by_group <- function(matrix_valid, labels_valid, dataset_name) {
@@ -1433,9 +1667,9 @@ selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1")
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
   display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
-  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "#666", "#001312"),
-  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#666", "#001312"),
-  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#666", "#001312"),
+  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "#ABABAB", "#001312"),
+  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#ABABAB", "#001312"),
+  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#ABABAB", "#001312"),
   
   linetype = c ("solid","solid","solid","solid", "solid", "solid")
   #linetype = c ("solid","solid","solid","solid", "solid", "solid")
@@ -2076,12 +2310,13 @@ p3 <- ggplot() +
   labs(
     x = "Liana class in drone photos (DP)",
     y = "Mean accuracy per crown",
-    title = "Cross validation (StratifiedGroupKFold) on crowns (NIR filter)",
+    title = "Cross validation (StratifiedGroupKFold) on crowns (No filter)",
     caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "%"),
     shape = "Fold",
     fill ="Fold"
   ) +
-  theme(legend.position = "right")
+  theme(legend.position = "right")+
+  theme_minimal()
 
 p3
 
@@ -2120,12 +2355,14 @@ p4 <- ggplot() +
   labs(
     x = "Liana class in drone photos (DP)",
     y = "Liana predicted per crown (%)",
-    title = "Mean liana prediction on all fold tested",
+    title = "Mean liana prediction on all fold tested (No filter)",
     caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "%"),
     shape = "Fold", 
     fill = "Fold"    
     )+
-  theme(legend.position = "right")
+  theme(legend.position = "right") +
+  theme_minimal()
+
 p4
 
 grid.arrange(p3, p4, ncol = 2)
@@ -2179,9 +2416,87 @@ grid.arrange(
 )
 
 #### For blob ####
-set.seed(123)
-folds_blob <- stratified_group_kfold(blob_df_pure, "poly_id", "Liana", k = 5)
-
+# nrow_blobs <- nrow(area_blob_filt)
+# ncol_blobs <- ncol(area_blob_filt)
+# 
+# label_blob_matrix <- as.matrix(label_blob_filt)  # ✅ 2499x1979
+# 
+# # 2. Créer un raster binaire (1 si blob, 0 sinon)
+# #    Si label_blob_filt contient déjà 0/1, on l'utilise directement :
+# blob_rast <- raster::raster(label_blob_matrix)
+# 
+# # 3. Appliquer clump pour identifier les groupes de pixels connectés
+# blob_clumped <- raster::clump(blob_rast, directions = 4)  # ✅ directions=4 pour connectivité 4-voisins
+# 
+# # 4. Extraire les poly_id pour les pixels valides (indices linéaires)
+# poly_id_m_blob <- as.matrix(blob_clumped)  # ✅ Matrice 2499x1979 en colonne-major
+# poly_id_valid_blob <- poly_id_m_blob[MD_per_pixel$valid_idx]  # ✅ Extraction par indices linéaires
+# 
+# # 5. Vérifier la cohérence
+# if (length(poly_id_valid_blob) != length(label_blob_valid)) {
+#   stop("❌ Incohérence entre poly_id_valid_blob et label_blob_valid")
+# }
+# 
+# # 6. Créer blob_df_pure
+# blob_df_pure <- as.data.frame(blob_filt_valid)
+# blob_df_pure$poly_id <- poly_id_valid_blob
+# blob_df_pure$Liana <- as.factor(label_blob_valid)  # ✅ Pas de transformation (0 ou 1)
+# blob_df_pure$Type <- factor("blob", levels = c("crowns", "blob"))
+# blob_df_pure$LianaOriginal <- NA
+# 
+# set.seed(123)
+# folds_blob <- stratified_group_kfold(blob_df_pure, "poly_id", "Liana", k = 5)
+# 
+# cv_results_blob <- list()
+# for (i in 1:length(folds_blob)) {  
+#   test_indices <- folds_blob[[i]]  
+#   train_indices <- setdiff(1:nrow(blob_df_pure), test_indices) 
+#   
+#   train_data <- blob_df_pure[train_indices, ]
+#   test_data  <- blob_df_pure[test_indices, ]
+#   
+#   band_cols_cv <- sapply(train_data, is.numeric)
+#   band_cols_cv <- band_cols_cv & names(train_data) != "poly_id"
+#   
+#   train_means <- colMeans(train_data[, band_cols_cv], na.rm = TRUE)
+#   train_sds  <- apply(train_data[, band_cols_cv], 2, sd, na.rm = TRUE)
+#   
+#   train_data[, band_cols_cv] <- scale(train_data[, band_cols_cv], center = train_means, scale = train_sds)
+#   test_data[, band_cols_cv]  <- scale(test_data[, band_cols_cv], center = train_means, scale = train_sds)
+#   
+#   # Removing constant (colinear columns)
+#   X_train_cv <- train_data[, band_cols_cv]
+#   constant_cols_cv <- sapply(X_train_cv, function(x) length(unique(x)) == 1)
+#   X_train_filtered_cv <- X_train_cv[, !constant_cols_cv, drop = FALSE]
+#   
+#   if (ncol(X_train_filtered_cv) > 1) {
+#     cor_matrix_cv <- cor(X_train_filtered_cv, use = "complete.obs")
+#     high_cor_cols_cv <- names(X_train_filtered_cv)[
+#       sapply(1:ncol(X_train_filtered_cv), function(j) any(abs(cor_matrix_cv[j, ]) > 0.99 & cor_matrix_cv[j, ] != 1))
+#     ]
+#     X_train_filtered_cv <- X_train_filtered_cv[, !names(X_train_filtered_cv) %in% high_cor_cols_cv, drop = FALSE]
+#   }
+#   
+#   train_lda_cv <- data.frame(Liana = train_data$Liana, X_train_filtered_cv)
+#   n_classes <- length(levels(train_lda_cv$Liana))
+#   model_cv <- lda(Liana ~ ., data = train_lda_cv, tol = 1e-8, prior = rep(1/n_classes, n_classes))
+#   
+#   X_test_cv <- test_data[, band_cols_cv]
+#   X_test_filtered_cv <- X_test_cv[, !constant_cols_cv, drop = FALSE]
+#   X_test_filtered_cv <- X_test_filtered_cv[, names(X_train_filtered_cv), drop = FALSE]
+#   
+#   test_lda_cv <- data.frame(Liana = test_data$Liana, X_test_filtered_cv)
+#   predictions_cv <- predict(model_cv, test_lda_cv)
+#   
+#   cv_results[[i]] <- list(
+#     fold = i,
+#     accuracy = mean(predictions_cv$class == test_data$Liana),
+#     test_data = test_data,
+#     predictions = predictions_cv,
+#     train_indices = train_indices,
+#     test_indices = test_indices
+#   )
+# }
 
 #### Confusion matrix (for StratifiedGroupKFold) ##############################
 all_true <- unlist(lapply(cv_results, function(x) x$test_data$Liana))
