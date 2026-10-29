@@ -16,6 +16,7 @@ library(tidyverse)
 library(sf)
 library(terra)
 library(data.table)
+library(psych)
 library(stats)
 library(Rtsne)
 library(ggplot2)
@@ -125,8 +126,8 @@ clean_extreme_values_toNA <- function(area, valid_range = c(0, 10000)) {
   
   cat("Number of pixel out of range:", (sum(n_below)+sum(n_above)), "\n")
 
-  area[area < valid_range[1]] <- valid_range[1]
-  area[area > valid_range[2]] <- valid_range[2]
+  area[area < valid_range[1]] <- NA
+  area[area > valid_range[2]] <- NA
   return(area)
 }
 
@@ -345,24 +346,10 @@ illu_crop_blob <- area_blob_filt * 0
 area_crowns_filt   <- area_crowns_filt / mean(area_crowns_filt, na.rm = TRUE)
 area_blob_filt <- area_blob_filt / mean(area_blob_filt, na.rm = TRUE)
 
-## Correlation (Chi2) between filters ##########################################
+## Correlation  between filters ##########################################
 
-run_chi2 <- function(pixels1, pixels2, name1, name2) {
-  tab <- table(pixels1, pixels2)
-  test <- chisq.test(tab)
-  cat(sprintf("\n--- %s vs %s ---\n", name1, name2))
-  cat(sprintf("Chi² = %.4f, df = %d, p-value = %.4f\n",
-              test$statistic, test$parameter, test$p.value))
-  if (test$p.value < 0.05) {
-    cat("→ The filters target different pixels (p < 0.05).\n")
-  } else {
-    cat("→ No significant difference (p >= 0.05).\n")
-  }
-}
-
-### Blob dataset
+### Blob data prep
 reference_blob <- area_blob
-
 mask_valid_blob <- !is.na(as.matrix(reference_blob[[1]]))  
 
 pixels_illu_blob <- as.matrix(illu_blob_out$label_filt)[mask_valid_blob]
@@ -371,13 +358,9 @@ pixels_vnir_blob <- as.matrix(VNIR_blob_out$label_filt)[mask_valid_blob]
 
 stopifnot(length(pixels_illu_blob) == length(pixels_nir_blob), length(pixels_illu_blob) == length(pixels_vnir_blob))
 
-run_chi2(pixels_illu_blob, pixels_nir_blob, "illu", "NIR")
-run_chi2(pixels_nir_blob, pixels_vnir_blob, "NIR", "VNIR")
-run_chi2(pixels_vnir_blob, pixels_illu_blob, "VNIR", "illu")
 
-### Crowns dataset
+### Crowns data prep
 reference_crowns <- area_crowns
-
 mask_valid_crowns <- !is.na(as.matrix(reference_crowns[[1]]))  
 
 pixels_illu_crowns <- as.matrix(illu_crowns_out$label_filt)[mask_valid_crowns]
@@ -386,10 +369,61 @@ pixels_vnir_crowns <- as.matrix(VNIR_crowns_out$label_filt)[mask_valid_crowns]
 
 stopifnot(length(pixels_illu_crowns) == length(pixels_nir_crowns), length(pixels_illu_crowns) == length(pixels_vnir_crowns))
 
+
+### Chi² ####
+run_chi2 <- function(pixels1, pixels2, name1, name2) {
+  tab <- table(pixels1, pixels2)
+  test <- chisq.test(tab)
+  cat(sprintf("\n--- %s vs %s ---\n", name1, name2))
+  cat(sprintf("Chi² = %.4f, df = %d, p-value = %.4f\n",
+              test$statistic, test$parameter, test$p.value))
+  if (test$p.value < 0.05) {
+    cat("→ The filters target similar pixels (p < 0.05).\n")
+  } else {
+    cat("→ The filters target different pixels (p >= 0.05).\n")
+  }
+}
+
+### Blob
+run_chi2(pixels_illu_blob, pixels_nir_blob, "illu", "NIR")
+run_chi2(pixels_nir_blob, pixels_vnir_blob, "NIR", "VNIR")
+run_chi2(pixels_vnir_blob, pixels_illu_blob, "VNIR", "illu")
+
+### Crowns
 run_chi2(pixels_illu_crowns, pixels_nir_crowns, "illu", "NIR")
 run_chi2(pixels_nir_crowns, pixels_vnir_crowns, "NIR", "VNIR")
 run_chi2(pixels_vnir_crowns, pixels_illu_crowns, "VNIR", "illu")
 
+### Cohen's Kappa ####
+run_kappa <- function(pixels1, pixels2, name1, name2) {
+  tab <- table(pixels1, pixels2)
+  kappa <- psych::cohen.kappa(tab)$kappa
+  cat(sprintf("\n--- %s vs %s (Kappa) ---\n", name1, name2))
+  cat(sprintf("Cohen's Kappa = %.4f\n", kappa))
+    if (kappa <= 0) {
+    cat("→ No agreement (κ ≤ 0)\n")
+  } else if (kappa <= 0.20) {
+    cat("→ Slight agreement (0 < κ ≤ 0.20)\n")
+  } else if (kappa <= 0.40) {
+    cat("→ Fair agreement (0.20 < κ ≤ 0.40)\n")
+  } else if (kappa <= 0.60) {
+    cat("→ Moderate agreement (0.40 < κ ≤ 0.60)\n")
+  } else if (kappa <= 0.80) {
+    cat("→ Substantial agreement (0.60 < κ ≤ 0.80)\n")
+  } else {
+    cat("→ Almost perfect agreement (κ > 0.80)\n")
+  }
+}
+
+# Blob
+run_kappa(pixels_illu_blob, pixels_nir_blob, "illu", "NIR")
+run_kappa(pixels_nir_blob, pixels_vnir_blob, "NIR", "VNIR")
+run_kappa(pixels_vnir_blob, pixels_illu_blob, "VNIR", "illu")
+
+# Crowns
+run_kappa(pixels_illu_crowns, pixels_nir_crowns, "illu", "NIR")
+run_kappa(pixels_nir_crowns, pixels_vnir_crowns, "NIR", "VNIR")
+run_kappa(pixels_vnir_crowns, pixels_illu_crowns, "VNIR", "illu")
 
 # Dimensionality reduction and data visualization ###############################
 
@@ -1204,7 +1238,7 @@ selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1")
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
   display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "MD0 (No Liana MD)", "MD1 ( Liana MD)"),
-  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "#ABABAB", "#001312"),
+  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "white", "#001312"),
   #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#ABABAB", "#001312"),
   #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#ABABAB", "#001312"),
   
@@ -1236,6 +1270,7 @@ for (g in unique(selected_smooth$group)) {
     }
   }
 }
+
 
 ggplot(selected_smooth, aes(x = wavelength)) +
   geom_ribbon(
@@ -1280,7 +1315,7 @@ ggplot(selected_smooth, aes(x = wavelength)) +
   ) +
   theme_minimal()
 
-
+# Visible region plot
 ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) +
   geom_ribbon(
     aes(
@@ -1323,6 +1358,7 @@ ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) 
   ) +
   theme_minimal()
 
+# NIR Region plot
 ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelength < 1340,], aes(x = wavelength)) +
   geom_ribbon(
     aes(
