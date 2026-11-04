@@ -8,7 +8,6 @@
 # m : matrix
 
 # File initialization #############################################
-
 rm(list = ls())
 
 ## Import libraries #### 
@@ -35,8 +34,11 @@ library(grid)
 ## Set working Directory ####
 setwd ("D:/DataCamille/")
 
+##Functions
+source("Classification_R/LianaClassification/Functions.R")
+
 # load('Classification_R/LianaClassification/myEnvironment.RData')
-#ls()
+
 
 # Uploading data and cropping ##########################################
 
@@ -45,12 +47,8 @@ setwd ("D:/DataCamille/")
 # r <- rast("HSI/mosaic_2016/nou_20160921_l1c_mosaic.bsq") #2016
 r <- rast("HSI/mosaic_2023/mosaic/nou_20231025_l1c_mosaic.bsq") #2023
 nlyr(r) #number of spectral bands
-# plot(r[[470]])
-# hist(r[[470]], breaks = 100)
 
 ## Illu ####
-
-# illu <- rast("HSI/mosaic_2016/nou_20160921_ilu_mosaic.bsq")
 illu <- rast("HSI/mosaic_2023/mosaic/Nou2023_Vol2_NS_mosaic_ilu.bsq")
 illu <- illu$`Illumination Shadows`
 nlyr(illu) # should be 1 (Illumination shadows)
@@ -61,121 +59,63 @@ nlyr(illu) # should be 1 (Illumination shadows)
 
 blob <- vect("Lianes/LianaOrNotLiana_55_45.shp")
 blob <- project(blob, crs(r))
-
 area_blob <- crop(r, blob, mask=TRUE)
+# area_blob <- mask(r, blob)
 # plot (area_blob) # /!\ creates one plot per band
 # plot(area_blob[[2]]) # the number is the rank of the band not it's value
-
-# Taking into account the liana label
-label_blob <- rasterize(blob, area_blob, field = "Type")
-
+label_blob <- rasterize(blob, area_blob, field = "Type") # Taking into account the liana label
 
 ## Crowns from drone photos (DP) ####
 crowns <- vect("Couronnes/Crowns_Liana_2025_GP_TRUE.shp")
 crowns <- project(crowns, crs(r))
-
 area_crowns <- crop(r, crowns, mask=TRUE)
-
 label_crowns <- rasterize(crowns, area_crowns, field = "LianaFullC")
 
 ## Proportion of lianas before filtering #####################################
-table(values(label_crowns), useNA = "no")
-prop.table(table(values(label_crowns), useNA = "no"))
 table(values(crowns)[["LianaFullC"]])
 prop.table(table(values(crowns)[["LianaFullC"]]))
 
-table(values(label_blob), useNA = "no")
-prop.table(table(values(label_blob), useNA = "no"))
 table(values(blob)[["Type"]])
 prop.table(table(values(blob)[["Type"]]))
 # Filtering pixels ##########################################################
-extract_wavelength <- function(band_names) {
-  
-  wl <- suppressWarnings(as.numeric(band_names))
-  need_regex <- is.na(wl)
-  wl[need_regex] <- as.numeric(gsub(".*\\(([0-9.]+)\\).*", "\\1", band_names[need_regex]))
-  
-  return(wl)
-}
-
 
 ## Cleaning extreme values / NA ##
-clean_extreme_values <- function(area, valid_range = c(0, 10000)) {
-  
-  area_matrix <- as.matrix(area)
-  
-  n_below <- sum(area_matrix < valid_range[1], na.rm = TRUE)
-  n_above <- sum(area_matrix > valid_range[2], na.rm = TRUE)
-  n_total_out <- n_below + n_above
-  n_total_values <- sum(!is.na(area_matrix))
-  
-  area_clamped <- clamp(area, lower = valid_range[1], upper = valid_range[2], values = TRUE)
-  
-  list(
-    area_clean = area_clamped,
-    n_below = n_below,
-    n_above = n_above,
-    n_total_out = n_total_out,
-    perc_n_out = n_total_out/n_total_values
-  )
-}
+# 
+# # min(area_crowns)
+# # max(area_crowns)
+# # sum(is.na(as.matrix(area_crowns)))
+# area_crowns <- clean_extreme_values_toNA(area_crowns)
+# # min(area_crowns)
+# # max(area_crowns)
+# # sum(is.na(as.matrix(area_crowns)))
+# 
+# # min(area_blob)
+# # max(area_blob)
+# # sum(is.na(as.matrix(area_blob)))
+# area_blob <- clean_extreme_values_toNA(area_blob)
+# # min(area_blob)
+# # max(area_blob)
+# # sum(is.na(as.matrix(area_blob)))
+# 
+# ## Removing range & bands with more than 95% na
+# 
+# area_crowns <- filter_good_bands(area_crowns, max_na_pct_band = 0.99)
+# area_blob <- filter_good_bands(area_blob, max_na_pct_band = 0.99)
+# 
+# wl_crowns <- round(extract_wavelength(names(area_crowns)), 2)
+# wl_blob   <- round(extract_wavelength(names(area_blob)), 2)
+# common_wl <- intersect(wl_crowns, wl_blob)
+# common_wl <- sort(common_wl)
+# 
+# area_crowns <- area_crowns[[which(wl_crowns %in% common_wl)]]
+# area_blob   <- area_blob[[which(wl_blob %in% common_wl)]]
+# 
+# writeRaster(area_crowns, "area_crowns_clean.tif", overwrite = T)
+# writeRaster(area_blob, "area_blob_clean.tif", overwrite = T)
 
-clean_extreme_values_toNA <- function(area, valid_range = c(0, 10000)) {
-  n_below <- global(area < valid_range[1], "sum", na.rm = TRUE)$sum
-  n_above <- global(area > valid_range[2], "sum", na.rm = TRUE)$sum
-  
-  cat("Number of pixel out of range:", (sum(n_below)+sum(n_above)), "\n")
-
-  area[area < valid_range[1]] <- NA
-  area[area > valid_range[2]] <- NA
-  return(area)
-}
-
-
-# min(area_crowns)
-# max(area_crowns)
-# sum(is.na(as.matrix(area_crowns)))
-area_crowns <- clean_extreme_values_toNA(area_crowns)
-# min(area_crowns)
-# max(area_crowns)
-# sum(is.na(as.matrix(area_crowns)))
-
-# min(area_blob)
-# max(area_blob)
-# sum(is.na(as.matrix(area_blob)))
-area_blob <- clean_extreme_values_toNA(area_blob)
-# min(area_blob)
-# max(area_blob)
-# sum(is.na(as.matrix(area_blob)))
-
-## Removing range & bands with more than 95% na
-filter_good_bands <- function(area, max_na_pct_band = 0.95) {
-  wl <- extract_wavelength(names(area))
-  #good_bands_idx <- which(wl < 414 | wl > 447 & wl < 1300 | wl > 1500 & wl < 1800 | wl > 2000)
-  good_bands_idx <- which((wl < 414) | (wl > 447 & wl < 1329.7) | (wl > 1497.9 & wl < 1774.8) | (wl > 1981 & wl < 2361.0))
-  area <- area[[good_bands_idx]]
-  
-  area_matrix <- as.matrix(area)
-  na_pct_per_band <- colSums(is.na(area_matrix)) / nrow(area_matrix)
-  good_bands <- na_pct_per_band < max_na_pct_band
-  
-  cat("Bands kept :", sum(good_bands), "/", length(good_bands), "\n")
-  cat("Bands removed: (>=", max_na_pct_band*100, "% NA) :", sum(!good_bands), "\n")
-  
-  area[[good_bands]]
-}
-
-area_crowns <- filter_good_bands(area_crowns, max_na_pct_band = 0.99)
-area_blob <- filter_good_bands(area_blob, max_na_pct_band = 0.99)
-
-wl_crowns <- round(extract_wavelength(names(area_crowns)), 2)
-wl_blob   <- round(extract_wavelength(names(area_blob)), 2)
-common_wl <- intersect(wl_crowns, wl_blob)
-common_wl <- sort(common_wl)
-
-area_crowns <- area_crowns[[which(wl_crowns %in% common_wl)]]
-area_blob   <- area_blob[[which(wl_blob %in% common_wl)]]
-
+#Importing cleaned rasters ####
+area_crowns <- rast ("area_crowns_clean.tif")
+area_blob <- rast ("area_blob_clean.tif")
 
 ## Removing pixel based on illu ####
 # Only used with the 2016 data (illu file missing fo 2023)
@@ -184,70 +124,7 @@ med_illu <- global(illu[[1]], fun = median, na.rm = TRUE)$global
 perc90_illu <- global(illu[[1]], fun = quantile, probs = 0.9, na.rm = TRUE)$X90.
 perc95_illu <- global(illu[[1]], fun = quantile, probs = 0.95, na.rm = TRUE)$X90.
 
-
-filter_by_illu <- function(illu_raster, area, label, threshold){
-  illu_crop_area <- crop(illu_raster, area)
-  n_before <- global(!is.na(area[[1]]), "sum")$sum
-
-  illu_mask <- illu_crop_area > threshold
-  
-  area_filtered <- mask(area, illu_mask, maskvalues = c(FALSE, NA))
-  label_filtered <- mask(label, illu_mask, maskvalues = c(FALSE, NA))
-
-  n_after <- global(!is.na(area_filtered[[1]]), "sum")$sum
-
-  per_n_out <- n_after/n_before
-
-  output_list <- list(
-    area_crop = illu_crop_area,
-    area_filt = area_filtered,
-    label_filt = label_filtered,
-    threshold_qual = per_n_out)
-
-  return(output_list)
-}
-
 ## Removing pixel based on VNIR reflectance median ####
-
-filter_by_vnir <- function(area, label, vnir_range = c(400, 1100)){
-  
-  # area_matrix <- as.matrix(area)
-  # na_per_band <- colSums(is.na(area_matrix))
-  # good_bands <- na_per_band < nrow(area_matrix)
-  # 
-  # wl <- extract_wavelength(names(area))[good_bands]
-  
-  wl <- extract_wavelength(names(area))
-  
-  vnir_idx <- which(wl >= vnir_range[1] & wl <= vnir_range[2])
-  vnir_stack <- area[[vnir_idx]]
-  
-  vnir_mean_px <- mean(vnir_stack, na.rm = TRUE)
-  vnir_mean_values <- as.vector(vnir_mean_px)
-  vnir_mean_values <- vnir_mean_values[!is.na(vnir_mean_values)]
-  
-  threshold_value <- median(vnir_mean_values, na.rm = TRUE)
-  # threshold_value <- quantile(vnir_mean_values, probs = 0.5, na.rm = TRUE)
-  
-  vnir_mask <- vnir_mean_px > threshold_value
-  
-  n_before <- global(!is.na(area[[1]]), "sum")$sum
-
-  area_filtered <- mask(area, vnir_mask, maskvalues = c(FALSE, NA))
-  label_filtered <- mask(label, vnir_mask, maskvalues = c(FALSE, NA))
-  
-  n_after <- global(!is.na(area_filtered[[1]]), "sum")$sum
-  
-  output_list <- list(
-    threshold = threshold_value,
-    area_filt = area_filtered,
-    label_filt = label_filtered,
-    threshold_qual = n_after / n_before
-  )
-  
-  return(output_list)
-}
-
 
 ## Removing pixel based on NIR reflectance####
 
@@ -256,53 +133,14 @@ filter_by_vnir <- function(area, label, vnir_range = c(400, 1100)){
 # mean_crowns <- mean(crowns_nir, na.rm =TRUE)
 # hist(mean_crowns)
 
-filter_by_nir <- function(area, label, nir_range = c(780, 900)){
-
-  # area_matrix <- as.matrix(area)
-  # na_per_band <- colSums(is.na(area_matrix))
-  # good_bands <- na_per_band < nrow(area_matrix)
-  # 
-  # wl <- extract_wavelength(names(area))[good_bands]
-  
-  wl <- extract_wavelength(names(area))
-  
-  nir_idx <- which(wl >= nir_range[1] & wl <= nir_range[2])
-
-  nir_stack <- area[[nir_idx]]
-  nir_mean_px <- mean(nir_stack, na.rm = TRUE)
-  nir_mean_values <- as.vector(nir_mean_px)
-  nir_mean_values <- nir_mean_values[!is.na(nir_mean_values)]
-
-  threshold_value <- 0.20 * mean(nir_mean_values, na.rm = TRUE)
-  # threshold_value <- quantile(nir_mean_values, probs = 0.2, na.rm = TRUE)
-
-  nir_mask <- nir_mean_px >= threshold_value
-  
-  n_before <- global(!is.na(area[[1]]), "sum")$sum
-
-  area_filtered <- mask(area, nir_mask, maskvalues = c(FALSE, NA))
-  label_filtered <- mask(label, nir_mask, maskvalues = c(FALSE, NA))
-
-  n_after <- global(!is.na(area_filtered[[1]]), "sum")$sum
-
-  output_list <- list(
-    threshold_value = threshold_value,
-    area_filt = area_filtered,
-    label_filt = label_filtered,
-    threshold_qual = n_after / n_before
-  )
-
-  return(output_list)
-}
-
 
 ## applying/choosing the filter #########################################################
 
 # Comment and/or uncomment to choose the right filter
 
 ### Illu (median) #################
-illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
-illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
+# illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
+# illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
 
 # area_crowns_filt <- illu_crowns_out$area_filt
 # label_crowns_filt <- illu_crowns_out$label_filt
@@ -312,8 +150,8 @@ illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
 # illu_crop_blob <- illu_blob_out$area_crop
 
 ### VNIR (mean) ####################
-VNIR_crowns_out <- filter_by_vnir(area_crowns, label_crowns)
-VNIR_blob_out <- filter_by_vnir(area_blob, label_blob)
+# VNIR_crowns_out <- filter_by_vnir(area_crowns, label_crowns)
+# VNIR_blob_out <- filter_by_vnir(area_blob, label_blob)
 
 # area_crowns_filt <- VNIR_crowns_out$area_filt
 # label_crowns_filt <- VNIR_crowns_out$label_filt
@@ -343,14 +181,28 @@ illu_crop_blob <- area_blob_filt * 0
 # illu_crop_blob <- area_blob * 0
 
 ## Normalization #####################
-area_crowns_filt   <- area_crowns_filt / mean(area_crowns_filt, na.rm = TRUE)
-area_blob_filt <- area_blob_filt / mean(area_blob_filt, na.rm = TRUE)
+m_crowns <- mean(area_crowns_filt, na.rm = TRUE)
+# area_crowns_filt <- area_crowns_filt - m_crowns 
+area_crowns_filt <- area_crowns_filt / m_crowns
+
+m_blob <- mean(area_blob_filt, na.rm = TRUE)
+# area_blob_filt   <- area_blob_filt - m_blob
+area_blob_filt <- area_blob_filt / m_blob
+
+# 
+# dt_crowns <- as.data.table(area_crowns)
+# plot(as.numeric(dt_crowns[1,))
+# mean(as.numeric(dt_crowns[1, ]), na.rm = TRUE)
+
+# datatabe
+# remplacer les valeurs
+
 
 ## Correlation  between filters ##########################################
 
 ### Blob data prep
-reference_blob <- area_blob
-mask_valid_blob <- !is.na(as.matrix(reference_blob[[1]]))  
+reference_blob <- area_blob_filt_norm
+mask_valid_blob <- !is.na(reference_blob[[1]])  
 
 pixels_illu_blob <- as.matrix(illu_blob_out$label_filt)[mask_valid_blob]
 pixels_nir_blob  <- as.matrix(NIR_blob_out$label_filt)[mask_valid_blob]
@@ -360,7 +212,7 @@ stopifnot(length(pixels_illu_blob) == length(pixels_nir_blob), length(pixels_ill
 
 
 ### Crowns data prep
-reference_crowns <- area_crowns
+reference_crowns <- area_crowns_filt
 mask_valid_crowns <- !is.na(as.matrix(reference_crowns[[1]]))  
 
 pixels_illu_crowns <- as.matrix(illu_crowns_out$label_filt)[mask_valid_crowns]
@@ -371,18 +223,6 @@ stopifnot(length(pixels_illu_crowns) == length(pixels_nir_crowns), length(pixels
 
 
 ### Chi² ####
-run_chi2 <- function(pixels1, pixels2, name1, name2) {
-  tab <- table(pixels1, pixels2)
-  test <- chisq.test(tab)
-  cat(sprintf("\n--- %s vs %s ---\n", name1, name2))
-  cat(sprintf("Chi² = %.4f, df = %d, p-value = %.4f\n",
-              test$statistic, test$parameter, test$p.value))
-  if (test$p.value < 0.05) {
-    cat("→ The filters target similar pixels (p < 0.05).\n")
-  } else {
-    cat("→ The filters target different pixels (p >= 0.05).\n")
-  }
-}
 
 ### Blob
 run_chi2(pixels_illu_blob, pixels_nir_blob, "illu", "NIR")
@@ -395,116 +235,55 @@ run_chi2(pixels_nir_crowns, pixels_vnir_crowns, "NIR", "VNIR")
 run_chi2(pixels_vnir_crowns, pixels_illu_crowns, "VNIR", "illu")
 
 ### Cohen's Kappa ####
-run_kappa <- function(pixels1, pixels2, name1, name2) {
-  tab <- table(pixels1, pixels2)
-  kappa <- psych::cohen.kappa(tab)$kappa
-  cat(sprintf("\n--- %s vs %s (Kappa) ---\n", name1, name2))
-  cat(sprintf("Cohen's Kappa = %.4f\n", kappa))
-    if (kappa <= 0) {
-    cat("→ No agreement (κ ≤ 0)\n")
-  } else if (kappa <= 0.20) {
-    cat("→ Slight agreement (0 < κ ≤ 0.20)\n")
-  } else if (kappa <= 0.40) {
-    cat("→ Fair agreement (0.20 < κ ≤ 0.40)\n")
-  } else if (kappa <= 0.60) {
-    cat("→ Moderate agreement (0.40 < κ ≤ 0.60)\n")
-  } else if (kappa <= 0.80) {
-    cat("→ Substantial agreement (0.60 < κ ≤ 0.80)\n")
-  } else {
-    cat("→ Almost perfect agreement (κ > 0.80)\n")
-  }
-}
 
-# Blob
+# BLOB 
+mask_valid_blob <- !is.na(as.matrix(reference_blob[[1]])) &
+  !is.na(as.matrix(illu_blob_out$label_filt)) &
+  !is.na(as.matrix(NIR_blob_out$label_filt)) &
+  !is.na(as.matrix(VNIR_blob_out$label_filt))
+
+pixels_ref_blob    <- as.vector(as.matrix(reference_blob[[1]]))[mask_valid_blob]
+pixels_illu_blob_med   <- as.vector(as.matrix(illu_blob_out$label_filt))[mask_valid_blob]
+pixels_nir_blob_20    <- as.vector(as.matrix(NIR_blob_out$label_filt))[mask_valid_blob]
+pixels_vnir_blob   <- as.vector(as.matrix(VNIR_blob_out$label_filt))[mask_valid_blob]
+
+# CROWNS
+mask_valid_crowns <- !is.na(as.matrix(reference_crowns[[1]])) &
+  !is.na(as.matrix(illu_crowns_out$label_filt)) &
+  !is.na(as.matrix(NIR_crowns_out$label_filt)) &
+  !is.na(as.matrix(VNIR_crowns_out$label_filt))
+
+pixels_ref_crowns  <- as.vector(as.matrix(reference_crowns[[1]]))[mask_valid_crowns]
+pixels_illu_crowns_med <- as.vector(as.matrix(illu_crowns_out$label_filt))[mask_valid_crowns]
+pixels_nir_crowns_20  <- as.vector(as.matrix(NIR_crowns_out$label_filt))[mask_valid_crowns]
+pixels_vnir_crowns <- as.vector(as.matrix(VNIR_crowns_out$label_filt))[mask_valid_crowns]
+
 run_kappa(pixels_illu_blob, pixels_nir_blob, "illu", "NIR")
 run_kappa(pixels_nir_blob, pixels_vnir_blob, "NIR", "VNIR")
 run_kappa(pixels_vnir_blob, pixels_illu_blob, "VNIR", "illu")
-
-# Crowns
-run_kappa(pixels_illu_crowns, pixels_nir_crowns, "illu", "NIR")
-run_kappa(pixels_nir_crowns, pixels_vnir_crowns, "NIR", "VNIR")
-run_kappa(pixels_vnir_crowns, pixels_illu_crowns, "VNIR", "illu")
 
 # Dimensionality reduction and data visualization ###############################
 
 ## Data prep ##############################################################
 
-data_prep_per_pixel <- function(area_filtered, label_filtered, illu_crop_area, max_na_pct = 0.05){
-  area_matrix <- as.matrix(area_filtered)
-  label_matrix <- as.matrix (label_filtered)[,1]
- 
-  valid_idx <- which(!is.na(label_matrix) & rowSums(is.na(area_matrix)) == 0)
-
-  area_valid <- area_matrix[valid_idx, , drop = FALSE]
-  labels_valid <- label_matrix[valid_idx]
-  
-  illu_matrix <- as.matrix(illu_crop_area)[, 1]
-  illu_valid <- illu_matrix[valid_idx]
-  
-  output_list <- list(
-    matrix = area_valid,
-    labels = labels_valid,
-    illu = illu_valid,
-    valid_idx = valid_idx)
-  
-  return(output_list)
-} 
-
-data_prep_per_poly <- function(area_filtered, area_vector, label_name){
-  
-  # Mean spectrum per polygon
-  poly_spectra <- extract(area_filtered, area_vector, fun = mean, na.rm = TRUE, ID = TRUE)
-  poly_labels <- values(area_vector)[[label_name]][poly_spectra$ID]
-  
-  # Create the matrix
-  poly_matrix <- as.matrix(poly_spectra[, -1])
-  
-  na_per_band_poly <- colSums(is.na(poly_matrix))
-  good_bands_poly <- na_per_band_poly < nrow(poly_matrix)
-  
-  poly_valid <- poly_matrix[, good_bands_poly]
-  
-  # Remove polygons full of NA
-  valid_poly_idx <- rowSums(is.na(poly_valid)) == 0
-  
-  poly_valid <- poly_valid[valid_poly_idx, ]
-  label_poly_valid <- poly_labels[valid_poly_idx]
-  dim(poly_valid)
-  length(label_poly_valid)
-  
-  output_list <- list(
-    matrix = poly_valid,
-    labels = label_poly_valid,
-    goodbands = good_bands_poly
-    )
-  
-  return(output_list)
-}
-
 ### Data prep for DP
 DP_per_pixel <- data_prep_per_pixel(area_crowns_filt, label_crowns_filt, illu_crop_crowns)
-
 crowns_filt_valid <- DP_per_pixel$matrix
 illu_crowns_valid <- DP_per_pixel$illu
 label_crowns_valid <- DP_per_pixel$labels
 
-
 DP_per_poly <- data_prep_per_poly(area_crowns_filt, crowns, "LianaFullC")
-
 crowns_poly_valid <- DP_per_poly$matrix
 label_crowns_poly_valid <- DP_per_poly$label
 
 
 ### Data prep for MD
 MD_per_pixel <- data_prep_per_pixel(area_blob_filt, label_blob_filt, illu_crop_blob)
-
 blob_filt_valid <- MD_per_pixel$matrix
 illu_blob_valid <- MD_per_pixel$illu
 label_blob_valid <- MD_per_pixel$label
 
-
 MD_per_poly <- data_prep_per_poly(area_blob_filt, blob, "Type")
-
 blob_poly_valid <- MD_per_poly$matrix
 label_blob_poly_valid <- MD_per_poly$label
 
@@ -535,8 +314,8 @@ pca_plot_crowns <- data.frame(
 
 ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
-  #scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
+  # scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
+  scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
   #scale_color_manual(values = c("0"= "#21421e", "1"="#568203","2"="#9acd32","3"= "#c5e384"),
                      
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
@@ -1173,54 +952,6 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
 
 
 # Mean spectrum comparison ###################################################
-
-sensor_to_keep <- function(matrix_valid, keep_sensor_in_overlap = c("swir", "vnir")) {
-  
-  keep_sensor_in_overlap <- match.arg(keep_sensor_in_overlap)
-  wl <- extract_wavelength(colnames(matrix_valid))
-  
-  break_idx <- which(diff(wl) < 0)[1]       
-  
-  if (is.na(break_idx)) return(matrix_valid)
-  vnir_idx <- 1:break_idx
-  swir_idx <- (break_idx + 1):length(wl)
-  
-  overlap_min <- wl[swir_idx[1]]
-  overlap_max <- wl[break_idx]
-  
-  if (keep_sensor_in_overlap == "swir") {
-    drop_idx <- vnir_idx[wl[vnir_idx] >= overlap_min]   
-  } else {
-    drop_idx <- swir_idx[wl[swir_idx] <= overlap_max]    
-  }
-  
-  keep_overlap <- !(seq_along(wl) %in% drop_idx)
-  
-
-  matrix_valid <- matrix_valid[,which(keep_overlap), drop = FALSE]
-}
-
-mean_spectrum_by_group <- function(matrix_valid, labels_valid, dataset_name) {
-  groups <- unique(labels_valid)
-
-  wavelengths <- extract_wavelength(colnames(matrix_valid))
-  
-  spectra_list <- lapply(groups, function(g) {
-    group_matrix <- matrix_valid[labels_valid == g, , drop = FALSE] 
-    mean_spec <- colMeans(group_matrix, na.rm = TRUE)
-    sd_spec <- apply(group_matrix, 2, sd, na.rm = TRUE) 
-    
-    data.frame(
-      wavelength = wavelengths,
-      mean = mean_spec,
-      sd= sd_spec,
-      group = paste0(dataset_name, "_", g)
-    )
-  })
-
-  do.call(rbind, spectra_list)
-}
-  
 crowns_poly_valid <- sensor_to_keep(crowns_poly_valid, "swir")
 blob_poly_valid <- sensor_to_keep(blob_poly_valid, "swir")
 
@@ -1246,12 +977,6 @@ label_config <- data.frame(
   #linetype = c ("solid","solid","solid","solid", "solid", "solid")
   
 )
-
-add_segments <- function(dt, gap_nm = 8) {
-  dt <- as.data.table(dt)
-  dt[, segment := cumsum(c(TRUE, diff(wavelength) <= 0 | diff(wavelength) > gap_nm)), by = group]
-  dt
-}
 
 selected <- add_segments(selected)
 
@@ -1358,6 +1083,7 @@ ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) 
   ) +
   theme_minimal()
 
+
 # NIR Region plot
 ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelength < 1340,], aes(x = wavelength)) +
   geom_ribbon(
@@ -1400,6 +1126,8 @@ ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelen
     fill = "Type"  
   ) +
   theme_minimal()
+
+#SWIR1
 
 ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavelength < 1790,], aes(x = wavelength)) +
   geom_ribbon(
@@ -1669,27 +1397,6 @@ ggplot(diff_spectra_smooth[diff_spectra_smooth$wavelength > 1420 & diff_spectra_
 
 # Median spectrum comparison ###################################################
 
-med_spectrum_by_group <- function(matrix_valid, labels_valid, dataset_name) {
-  groups <- unique(labels_valid)
-  
-  wavelengths <- extract_wavelength(colnames(matrix_valid))
-  
-  spectra_list <- lapply(groups, function(g) {
-    group_matrix <- matrix_valid[labels_valid == g, , drop = FALSE] 
-    med_spec <- colMedians(group_matrix, na.rm = TRUE)
-    sd_spec <- apply(group_matrix, 2, sd, na.rm = TRUE) 
-    
-    data.frame(
-      wavelength = wavelengths,
-      med = med_spec,
-      sd= sd_spec,
-      group = paste0(dataset_name, "_", g)
-    )
-  })
-  
-  do.call(rbind, spectra_list)
-}
-
 spec_crowns <- med_spectrum_by_group(crowns_poly_valid, label_crowns_poly_valid, "DP")
 spec_blob   <- med_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, "MD")
 
@@ -1711,12 +1418,6 @@ label_config <- data.frame(
   #linetype = c ("solid","solid","solid","solid", "solid", "solid")
   
 )
-
-add_segments <- function(dt, gap_nm = 8) {
-  dt <- as.data.table(dt)
-  dt[, segment := cumsum(c(TRUE, diff(wavelength) <= 0 | diff(wavelength) > gap_nm)), by = group]
-  dt
-}
 
 selected <- add_segments(selected)
 
@@ -2220,22 +1921,6 @@ grid.arrange(p1, p2, ncol = 2)
 
 ### StratifiedGroupKFold ####
 
-stratified_group_kfold <- function(data, group_col, stratify_col, k = 5, seed = 123) {
-  set.seed(seed)
-  group_classes <- sapply(unique(data[[group_col]]), function(group) {
-    group_data <- data[data[[group_col]] == group, ]
-    names(which.max(table(group_data[[stratify_col]])))
-  })
-  groups_df <- data.frame(group = unique(data[[group_col]]), class = group_classes)
-  folds <- vector("list", k)
-  for (class in unique(groups_df$class)) {
-    class_groups <- groups_df$group[groups_df$class == class]
-    fold_assignments <- sample(rep(1:k, length.out = length(class_groups)))
-    for (i in 1:k) folds[[i]] <- c(folds[[i]], class_groups[fold_assignments == i])
-  }
-  lapply(folds, function(groups) which(data[[group_col]] %in% groups))
-}
-
 #### For crowns ####
 set.seed(123)
 folds_crowns <- stratified_group_kfold(crowns_df_pure, "poly_id", "Liana", k = 5)
@@ -2369,6 +2054,15 @@ predicted_liana_per_crown_cv$prediction <- predicted_liana_per_crown_cv$predicti
 
 
 p4 <- ggplot() +
+  geom_jitter(
+    data = predicted_liana_per_crown_cv,
+    aes(x = LianaOriginal, y = prediction, shape = factor(fold), fill = factor(fold)),
+    width = 0.15,
+    alpha = 0.5,
+    size = 2.5,
+    color = "black",
+    stroke = 0.3
+  ) +
   geom_boxplot(
     data = predicted_liana_per_crown_cv,
     aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
@@ -2376,17 +2070,8 @@ p4 <- ggplot() +
     linewidth = 0.8,
     show.legend = FALSE
   ) +
-  geom_jitter(
-    data = predicted_liana_per_crown_cv,
-    aes(x = LianaOriginal, y = prediction, shape = factor(fold), fill = factor(fold)),
-    width = 0.15,
-    alpha = 0.7,
-    size = 2.5,
-    color = "black",
-    stroke = 0.3
-  ) +
   scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred1", "2" = "palevioletred3", "3" = "palevioletred4")) +
-  scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5"="#DB6D00")) +
+  scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5"="grey")) +
   scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
   labs(
     x = "Liana class in drone photos (DP)",
@@ -2452,87 +2137,190 @@ grid.arrange(
 )
 
 #### For blob ####
-# nrow_blobs <- nrow(area_blob_filt)
-# ncol_blobs <- ncol(area_blob_filt)
-# 
-# label_blob_matrix <- as.matrix(label_blob_filt)  # ✅ 2499x1979
-# 
-# # 2. Créer un raster binaire (1 si blob, 0 sinon)
-# #    Si label_blob_filt contient déjà 0/1, on l'utilise directement :
-# blob_rast <- raster::raster(label_blob_matrix)
-# 
-# # 3. Appliquer clump pour identifier les groupes de pixels connectés
-# blob_clumped <- raster::clump(blob_rast, directions = 4)  # ✅ directions=4 pour connectivité 4-voisins
-# 
-# # 4. Extraire les poly_id pour les pixels valides (indices linéaires)
-# poly_id_m_blob <- as.matrix(blob_clumped)  # ✅ Matrice 2499x1979 en colonne-major
-# poly_id_valid_blob <- poly_id_m_blob[MD_per_pixel$valid_idx]  # ✅ Extraction par indices linéaires
-# 
-# # 5. Vérifier la cohérence
-# if (length(poly_id_valid_blob) != length(label_blob_valid)) {
-#   stop("❌ Incohérence entre poly_id_valid_blob et label_blob_valid")
-# }
-# 
-# # 6. Créer blob_df_pure
-# blob_df_pure <- as.data.frame(blob_filt_valid)
-# blob_df_pure$poly_id <- poly_id_valid_blob
-# blob_df_pure$Liana <- as.factor(label_blob_valid)  # ✅ Pas de transformation (0 ou 1)
-# blob_df_pure$Type <- factor("blob", levels = c("crowns", "blob"))
-# blob_df_pure$LianaOriginal <- NA
-# 
-# set.seed(123)
-# folds_blob <- stratified_group_kfold(blob_df_pure, "poly_id", "Liana", k = 5)
-# 
-# cv_results_blob <- list()
-# for (i in 1:length(folds_blob)) {  
-#   test_indices <- folds_blob[[i]]  
-#   train_indices <- setdiff(1:nrow(blob_df_pure), test_indices) 
-#   
-#   train_data <- blob_df_pure[train_indices, ]
-#   test_data  <- blob_df_pure[test_indices, ]
-#   
-#   band_cols_cv <- sapply(train_data, is.numeric)
-#   band_cols_cv <- band_cols_cv & names(train_data) != "poly_id"
-#   
-#   train_means <- colMeans(train_data[, band_cols_cv], na.rm = TRUE)
-#   train_sds  <- apply(train_data[, band_cols_cv], 2, sd, na.rm = TRUE)
-#   
-#   train_data[, band_cols_cv] <- scale(train_data[, band_cols_cv], center = train_means, scale = train_sds)
-#   test_data[, band_cols_cv]  <- scale(test_data[, band_cols_cv], center = train_means, scale = train_sds)
-#   
-#   # Removing constant (colinear columns)
-#   X_train_cv <- train_data[, band_cols_cv]
-#   constant_cols_cv <- sapply(X_train_cv, function(x) length(unique(x)) == 1)
-#   X_train_filtered_cv <- X_train_cv[, !constant_cols_cv, drop = FALSE]
-#   
-#   if (ncol(X_train_filtered_cv) > 1) {
-#     cor_matrix_cv <- cor(X_train_filtered_cv, use = "complete.obs")
-#     high_cor_cols_cv <- names(X_train_filtered_cv)[
-#       sapply(1:ncol(X_train_filtered_cv), function(j) any(abs(cor_matrix_cv[j, ]) > 0.99 & cor_matrix_cv[j, ] != 1))
-#     ]
-#     X_train_filtered_cv <- X_train_filtered_cv[, !names(X_train_filtered_cv) %in% high_cor_cols_cv, drop = FALSE]
-#   }
-#   
-#   train_lda_cv <- data.frame(Liana = train_data$Liana, X_train_filtered_cv)
-#   n_classes <- length(levels(train_lda_cv$Liana))
-#   model_cv <- lda(Liana ~ ., data = train_lda_cv, tol = 1e-8, prior = rep(1/n_classes, n_classes))
-#   
-#   X_test_cv <- test_data[, band_cols_cv]
-#   X_test_filtered_cv <- X_test_cv[, !constant_cols_cv, drop = FALSE]
-#   X_test_filtered_cv <- X_test_filtered_cv[, names(X_train_filtered_cv), drop = FALSE]
-#   
-#   test_lda_cv <- data.frame(Liana = test_data$Liana, X_test_filtered_cv)
-#   predictions_cv <- predict(model_cv, test_lda_cv)
-#   
-#   cv_results[[i]] <- list(
-#     fold = i,
-#     accuracy = mean(predictions_cv$class == test_data$Liana),
-#     test_data = test_data,
-#     predictions = predictions_cv,
-#     train_indices = train_indices,
-#     test_indices = test_indices
-#   )
-# }
+blob_df_pure$LianaOriginal <- blob_df_pure$Liana
+blob$poly_id <- seq_len(nrow(blob))
+poly_id_r <- rasterize(blob, area_blob_filt, field = "poly_id")
+poly_id_m <- as.matrix(poly_id_r)[, 1]
+poly_id_valid <- poly_id_m[MD_per_pixel$valid_idx]
+blob_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
+set.seed(123)
+folds_blob <- stratified_group_kfold(blob_df_pure, "poly_id", "Liana", k = 5)
+
+cv_results <- list()
+for (i in 1:length(folds_blob)) {  
+  test_indices <- folds_blob[[i]]  
+  train_indices <- setdiff(1:nrow(blob_df_pure), test_indices) 
+  
+  train_data <- blob_df_pure[train_indices, ]
+  test_data  <- blob_df_pure[test_indices, ]
+  
+  band_cols_cv <- sapply(train_data, is.numeric)
+  band_cols_cv <- band_cols_cv & names(train_data) != "poly_id"
+  
+  train_means <- colMeans(train_data[, band_cols_cv], na.rm = TRUE)
+  train_sds  <- apply(train_data[, band_cols_cv], 2, sd, na.rm = TRUE)
+  
+  train_data[, band_cols_cv] <- scale(train_data[, band_cols_cv], center = train_means, scale = train_sds)
+  test_data[, band_cols_cv]  <- scale(test_data[, band_cols_cv], center = train_means, scale = train_sds)
+  
+  # Removing constant (colinear columns)
+  X_train_cv <- train_data[, band_cols_cv]
+  constant_cols_cv <- sapply(X_train_cv, function(x) length(unique(x)) == 1)
+  X_train_filtered_cv <- X_train_cv[, !constant_cols_cv, drop = FALSE]
+  
+  if (ncol(X_train_filtered_cv) > 1) {
+    cor_matrix_cv <- cor(X_train_filtered_cv, use = "complete.obs")
+    high_cor_cols_cv <- names(X_train_filtered_cv)[
+      sapply(1:ncol(X_train_filtered_cv), function(j) any(abs(cor_matrix_cv[j, ]) > 0.99 & cor_matrix_cv[j, ] != 1))
+    ]
+    X_train_filtered_cv <- X_train_filtered_cv[, !names(X_train_filtered_cv) %in% high_cor_cols_cv, drop = FALSE]
+  }
+  
+  train_lda_cv <- data.frame(Liana = train_data$Liana, X_train_filtered_cv)
+  n_classes <- length(levels(train_lda_cv$Liana))
+  model_cv <- lda(Liana ~ ., data = train_lda_cv, tol = 1e-8, prior = rep(1/n_classes, n_classes))
+  
+  X_test_cv <- test_data[, band_cols_cv]
+  X_test_filtered_cv <- X_test_cv[, !constant_cols_cv, drop = FALSE]
+  X_test_filtered_cv <- X_test_filtered_cv[, names(X_train_filtered_cv), drop = FALSE]
+  
+  test_lda_cv <- data.frame(Liana = test_data$Liana, X_test_filtered_cv)
+  predictions_cv <- predict(model_cv, test_lda_cv)
+  
+  cv_results[[i]] <- list(
+    fold = i,
+    accuracy = mean(predictions_cv$class == test_data$Liana),
+    test_data = test_data,
+    predictions = predictions_cv,
+    train_indices = train_indices,
+    test_indices = test_indices
+  )
+}
+
+cv_accuracies <- sapply(cv_results, function(x) x$accuracy)
+cat("Accuracies per fold:", paste(round(cv_accuracies, 3), collapse = ", "), "\n")
+cat("Mean accuracy CV:", round(mean(cv_accuracies), 3), "\n")
+
+all_cv_results <- do.call(rbind, lapply(cv_results, function(x) {
+  n_test <- nrow(x$test_data)
+  data.frame(
+    fold = rep(x$fold, n_test),
+    poly_id = x$test_data$poly_id,
+    LianaOriginal = x$test_data$LianaOriginal,
+    correct = x$predictions$class == x$test_data$Liana,
+    predicted = x$predictions$class
+  )
+}))
+
+all_cv_results_filtered <- subset(all_cv_results, LianaOriginal %in% c("0", "1"))
+
+mean_accuracy_pixel_filtered <- mean(all_cv_results_filtered$correct)
+mean_accuracy_pixel_filtered
+
+accuracy_per_crown_cv <- aggregate(correct ~ poly_id + LianaOriginal + fold,
+                                   data = all_cv_results,
+                                   FUN = mean)
+names(accuracy_per_crown_cv)[4] <- "accuracy"
+
+accuracy_points_by_fold <- aggregate(correct ~ poly_id + LianaOriginal + fold,
+                                     data = all_cv_results,
+                                     FUN = mean)
+
+
+accuracy_points_by_fold_filtered <- subset(accuracy_points_by_fold,LianaOriginal %in% c("0", "3"))
+
+
+all_cv_results$predicted_cv_num <- as.numeric(as.character(all_cv_results$predicted))
+
+predicted_liana_per_crown_cv <- aggregate(
+  predicted_cv_num ~ poly_id + LianaOriginal + fold,
+  data = all_cv_results,
+  FUN = mean
+)
+names(predicted_liana_per_crown_cv)[4] <- "prediction"
+
+predicted_liana_per_crown_cv$prediction <- predicted_liana_per_crown_cv$prediction * 100
+
+
+p4_blob <- ggplot() +
+  geom_jitter(
+    data = predicted_liana_per_crown_cv,
+    aes(x = LianaOriginal, y = prediction, shape = factor(fold), fill = factor(fold)),
+    width = 0.15,
+    alpha = 0.5,
+    size = 2.5,
+    color = "black",
+    stroke = 0.3
+  ) +
+  geom_boxplot(
+    data = predicted_liana_per_crown_cv,
+    aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+    fill = NA,
+    linewidth = 0.8,
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred4")) +
+  scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5"="grey")) +
+  scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
+  labs(
+    x = "Liana class in manual delineation",
+    y = "Liana predicted per crown (%)",
+    title = "Mean liana prediction on all fold tested (No filter)",
+    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "%"),
+    shape = "Fold", 
+    fill = "Fold"    
+  )+
+  theme(legend.position = "right") +
+  theme_minimal()
+
+p4_blob
+
+accuracy_by_fold <- aggregate(
+  correct ~ fold,
+  data = subset(all_cv_results, LianaOriginal %in% c("0", "3")),
+  FUN = mean
+)
+
+p4_fold_plots_blob <- lapply(1:5, function(current_fold) {
+  fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
+  fold_accuracy <- accuracy_by_fold$correct[accuracy_by_fold$fold == current_fold]
+  
+  ggplot() +
+    geom_boxplot(
+      data = fold_data,
+      aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+      fill = NA,
+      linewidth = 0.8,
+      show.legend = FALSE
+    ) +
+    geom_jitter(
+      data = fold_data,
+      aes(x = LianaOriginal, y = prediction, fill = factor(fold), shape = factor(fold)),
+      width = 0.15,
+      alpha = 0.7,
+      size = 2.5,
+      color = "black", 
+      stroke = 0.3
+    ) +
+    scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred4")) +  
+    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +  
+    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +  
+    labs(
+      x = "Liana class in manual delineation",
+      y = "Liana predicted per patch (%)",
+      title = paste("Testing on fold", current_fold),
+      caption = paste0("Fold mean accuracy = ", round(fold_accuracy * 100, 1), "%")
+    ) +
+    theme(legend.position = "none") 
+})
+
+grid.arrange(
+  grobs = c(p4_fold_plots_blob, p4_blob),
+  ncol = 2,
+  top = textGrob("Liana prediction by patch and by fold (NIR filter)",
+                 gp = gpar(fontsize = 12, fontface = "bold"))
+)
+
 
 #### Confusion matrix (for StratifiedGroupKFold) ##############################
 all_true <- unlist(lapply(cv_results, function(x) x$test_data$Liana))
@@ -2559,4 +2347,5 @@ ggplot(confusion_df_cv, aes(x = True, y = Predicted, fill = Freq)) +
   theme_minimal()
 
 save.image(file = file.path("Classification_R", "LianaClassification", "myEnvironment.RData"))
+
 
