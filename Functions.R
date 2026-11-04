@@ -1,22 +1,8 @@
 ## Import libraries #### 
-library(tidyverse)
-library(sf)
-library(terra)
-library(data.table)
-library(psych)
-library(stats)
-library(Rtsne)
-library(ggplot2)
-library(paletteer)
-library(miscTools)
-library(uwot)
-library(FactoMineR)
-library(fpc)
-library(signal)
-library(MASS)
-library(caret)
-library(gridExtra)
-library(grid)
+library(terra)      
+library(data.table)  
+library(miscTools)   
+library(psych) 
 
 # Preprocessing ####
 extract_wavelength <- function(band_names) {
