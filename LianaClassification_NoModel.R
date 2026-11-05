@@ -190,7 +190,7 @@ m_blob <- mean(area_blob_filt, na.rm = TRUE)
 area_blob_filt <- area_blob_filt / m_blob
 
 # save(area_crowns_filt, area_blob_filt, file = "Classification_R/LianaClassification/areas_NIR_norm.RData")
-# load("areas_NIR_norm.RData")
+# load("Classification_R/LianaClassification/areas_NIR_norm.RData")
 
 ## Correlation  between filters ##########################################
 
@@ -260,6 +260,8 @@ run_kappa(pixels_vnir_blob, pixels_illu_blob, "VNIR", "illu")
 
 ## Data prep ##############################################################
 
+# load("Classification_R/LianaClassification/valid_NIR.RData")
+
 ### Data prep for DP
 DP_per_pixel <- data_prep_per_pixel(area_crowns_filt, label_crowns_filt, illu_crop_crowns)
 crowns_filt_valid <- DP_per_pixel$matrix
@@ -282,6 +284,7 @@ blob_poly_valid <- MD_per_poly$matrix
 label_blob_poly_valid <- MD_per_poly$label
 
 # save(DP_per_pixel,DP_per_poly, MD_per_pixel, MD_per_poly, file = "Classification_R/LianaClassification/valid_NIR.RData"  )
+
 
 ## Proportion of lianas after data_prep #####################################
 table(label_crowns_valid)
@@ -865,22 +868,22 @@ spec_blob   <- med_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, "MD
 
 all_spectra <- rbind(spec_crowns, spec_blob)
 
-#selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1") & all_spectra$wavelength<900) #VNIR only
-selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1"))
-selected <- add_segments(selected)
+#med_selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1") & all_spectra$wavelength<900) #VNIR only
+med_selected <- subset(all_spectra, group %in% c("DP_CR0", "DP_CR3", "MD_0", "MD_1"))
+med_selected <- add_segments(med_selected)
 
-selected_smooth <- as.data.frame(selected)
-selected_smooth$med_smooth <- selected_smooth$med
-selected_smooth$sd_smooth   <- selected_smooth$sd
+med_selected_smooth <- as.data.frame(med_selected)
+med_selected_smooth$med_smooth <- med_selected_smooth$med
+med_selected_smooth$sd_smooth   <- med_selected_smooth$sd
 
-for (g in unique(selected_smooth$group)) {
-  for (s in unique(selected_smooth$segment[selected_smooth$group == g])) {
+for (g in unique(med_selected_smooth$group)) {
+  for (s in unique(med_selected_smooth$segment[med_selected_smooth$group == g])) {
     
-    rows <- which(selected_smooth$group == g & selected_smooth$segment == s)
+    rows <- which(med_selected_smooth$group == g & med_selected_smooth$segment == s)
     
     if (length(rows) >= 11) {
-      selected_smooth$med_smooth[rows] <- sgolayfilt(selected_smooth$med[rows], p = 3, n = 11)
-      selected_smooth$sd_smooth[rows]   <- sgolayfilt(selected_smooth$sd[rows], p = 3, n = 11)
+      med_selected_smooth$med_smooth[rows] <- sgolayfilt(med_selected_smooth$med[rows], p = 3, n = 11)
+      med_selected_smooth$sd_smooth[rows]   <- sgolayfilt(med_selected_smooth$sd[rows], p = 3, n = 11)
     }
   }
 }
@@ -1163,10 +1166,21 @@ for (i in 1:length(folds_crowns)) {
   test_lda_cv <- data.frame(Liana = test_data$Liana, X_test_filtered_cv)
   predictions_cv <- predict(model_cv, test_lda_cv)
   
+  test_data_filtered <- test_data[test_data$Liana %in% c("0", "3"), ]
+  pred_filtered <- predictions_cv$class[test_data$Liana %in% c("0", "3")]
+  
+  cm_filtered <- confusionMatrix(
+    factor(pred_filtered, levels = c("0", "3")),
+    factor(test_data_filtered$Liana, levels = c("0", "3")),
+    positive = NULL)
+  
+  f1_filtered <- calculate_f1_manual(test_data_filtered$Liana, pred_filtered)
+  
   cv_results[[i]] <- list(
     fold = i,
     accuracy = mean(predictions_cv$class == test_data$Liana),
     test_data = test_data,
+    f1_filtered = f1_filtered,
     predictions = predictions_cv,
     train_indices = train_indices,
     test_indices = test_indices
@@ -1174,8 +1188,12 @@ for (i in 1:length(folds_crowns)) {
 }
 
 cv_accuracies <- sapply(cv_results, function(x) x$accuracy)
+cv_f1 <- sapply(cv_results, function(x) x$f1_filtered)
+
 cat("Accuracies per fold:", paste(round(cv_accuracies, 3), collapse = ", "), "\n")
 cat("Mean accuracy CV:", round(mean(cv_accuracies), 3), "\n")
+cat("F1-scores per fold:", paste(round(cv_f1, 3), collapse = ", "), "\n")
+cat("Mean F1-score:", round(mean(cv_f1, na.rm = TRUE), 3), "\n")
 
 all_cv_results <- do.call(rbind, lapply(cv_results, function(x) {
   n_test <- nrow(x$test_data)
@@ -1274,7 +1292,8 @@ p4 <- ggplot() +
     x = "Liana class in drone photos (DP)",
     y = "Liana predicted per crown (%)",
     title = "Mean liana prediction on all fold tested (No filter)",
-    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "%"),
+    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1),  "% | ",
+                     "Mean F1-score (0&3) = ", round(mean(cv_f1, na.rm = TRUE), 3)),
     shape = "Fold", 
     fill = "Fold"    
     )+
@@ -1296,6 +1315,8 @@ accuracy_by_fold <- aggregate(
 p4_fold_plots <- lapply(1:5, function(current_fold) {
   fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
   fold_accuracy <- accuracy_by_fold$correct[accuracy_by_fold$fold == current_fold]
+  fold_f1 <- cv_f1[current_fold] 
+
 
   ggplot() +
     geom_boxplot(
@@ -1321,9 +1342,11 @@ p4_fold_plots <- lapply(1:5, function(current_fold) {
       x = "Liana class in drone photos (DP)",
       y = "Liana predicted per crown (%)",
       title = paste("Testing on fold", current_fold),
-      caption = paste0("Fold mean accuracy = ", round(fold_accuracy * 100, 1), "%")
+      caption = paste0("Fold mean accuracy = ", round(fold_accuracy * 100, 1), "% | ",
+                       "Fold F1-score (0&3) = ", round(cv_f1[current_fold], 3))
     ) +
-    theme(legend.position = "none") 
+    theme(legend.position = "none") +
+    theme_minimal()
     })
 
 grid.arrange(
@@ -1360,7 +1383,6 @@ for (i in 1:length(folds_blob)) {
   train_data[, band_cols_cv] <- scale(train_data[, band_cols_cv], center = train_means, scale = train_sds)
   test_data[, band_cols_cv]  <- scale(test_data[, band_cols_cv], center = train_means, scale = train_sds)
   
-  # Removing constant (colinear columns)
   X_train_cv <- train_data[, band_cols_cv]
   constant_cols_cv <- sapply(X_train_cv, function(x) length(unique(x)) == 1)
   X_train_filtered_cv <- X_train_cv[, !constant_cols_cv, drop = FALSE]
@@ -1384,9 +1406,12 @@ for (i in 1:length(folds_blob)) {
   test_lda_cv <- data.frame(Liana = test_data$Liana, X_test_filtered_cv)
   predictions_cv <- predict(model_cv, test_lda_cv)
   
+  f1_macro <- calculate_f1_manual(test_data$Liana, predictions_cv$class)
+  
   cv_results[[i]] <- list(
     fold = i,
     accuracy = mean(predictions_cv$class == test_data$Liana),
+    f1_macro = f1_macro,
     test_data = test_data,
     predictions = predictions_cv,
     train_indices = train_indices,
@@ -1395,8 +1420,12 @@ for (i in 1:length(folds_blob)) {
 }
 
 cv_accuracies <- sapply(cv_results, function(x) x$accuracy)
+cv_f1_macro <- sapply(cv_results, function(x) x$f1_macro)
+
 cat("Accuracies per fold:", paste(round(cv_accuracies, 3), collapse = ", "), "\n")
-cat("Mean accuracy CV:", round(mean(cv_accuracies), 3), "\n")
+cat("Mean accuracy CV:", round(mean(cv_accuracies), 3), "\n\n")
+cat("F1-scores (macro) per fold:", paste(round(cv_f1_macro, 3), collapse = ", "), "\n")
+cat("Mean F1-score (macro) CV:", round(mean(cv_f1_macro, na.rm = TRUE), 3), "\n")
 
 all_cv_results <- do.call(rbind, lapply(cv_results, function(x) {
   n_test <- nrow(x$test_data)
@@ -1409,11 +1438,6 @@ all_cv_results <- do.call(rbind, lapply(cv_results, function(x) {
   )
 }))
 
-all_cv_results_filtered <- subset(all_cv_results, LianaOriginal %in% c("0", "1"))
-
-mean_accuracy_pixel_filtered <- mean(all_cv_results_filtered$correct)
-mean_accuracy_pixel_filtered
-
 accuracy_per_crown_cv <- aggregate(correct ~ poly_id + LianaOriginal + fold,
                                    data = all_cv_results,
                                    FUN = mean)
@@ -1423,11 +1447,9 @@ accuracy_points_by_fold <- aggregate(correct ~ poly_id + LianaOriginal + fold,
                                      data = all_cv_results,
                                      FUN = mean)
 
-
-accuracy_points_by_fold_filtered <- subset(accuracy_points_by_fold,LianaOriginal %in% c("0", "3"))
-
-
 all_cv_results$predicted_cv_num <- as.numeric(as.character(all_cv_results$predicted))
+
+mean_accuracy_pixel <- mean(all_cv_results$correct)
 
 predicted_liana_per_crown_cv <- aggregate(
   predicted_cv_num ~ poly_id + LianaOriginal + fold,
@@ -1463,7 +1485,8 @@ p4_blob <- ggplot() +
     x = "Liana class in manual delineation",
     y = "Liana predicted per crown (%)",
     title = "Mean liana prediction on all fold tested (No filter)",
-    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "%"),
+    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel_filtered * 100, 1), "% | ",
+                     "Mean F1-score = ", round(mean(cv_f1_macro, na.rm = TRUE), 3)),
     shape = "Fold", 
     fill = "Fold"    
   )+
@@ -1474,13 +1497,14 @@ p4_blob
 
 accuracy_by_fold <- aggregate(
   correct ~ fold,
-  data = subset(all_cv_results, LianaOriginal %in% c("0", "3")),
+  data = subset(all_cv_results, LianaOriginal %in% c("0", "1")),
   FUN = mean
 )
 
 p4_fold_plots_blob <- lapply(1:5, function(current_fold) {
   fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
   fold_accuracy <- accuracy_by_fold$correct[accuracy_by_fold$fold == current_fold]
+  fold_f1 <- cv_f1_macro[current_fold] 
   
   ggplot() +
     geom_boxplot(
@@ -1506,9 +1530,11 @@ p4_fold_plots_blob <- lapply(1:5, function(current_fold) {
       x = "Liana class in manual delineation",
       y = "Liana predicted per patch (%)",
       title = paste("Testing on fold", current_fold),
-      caption = paste0("Fold mean accuracy = ", round(fold_accuracy * 100, 1), "%")
+      caption = paste0("Fold mean accuracy = ", round(fold_accuracy * 100, 1), "% | ",
+                       "Fold F1-score = ", round(fold_f1, 3))
     ) +
-    theme(legend.position = "none") 
+    theme(legend.position = "none")+
+    theme_minimal()
 })
 
 grid.arrange(
@@ -1518,33 +1544,112 @@ grid.arrange(
                  gp = gpar(fontsize = 12, fontface = "bold"))
 )
 
+### F1 score graphs
+all_predictions <- do.call(rbind, lapply(cv_results, function(x) {
+  data.frame(
+    fold = rep(x$fold, nrow(x$test_data)),
+    poly_id = x$test_data$poly_id,
+    true = x$test_data$Liana,
+    pred = x$predictions$class
+  )
+}))
 
-#### Confusion matrix (for StratifiedGroupKFold) ##############################
-all_true <- unlist(lapply(cv_results, function(x) x$test_data$Liana))
-all_pred <- unlist(lapply(cv_results, function(x) x$predictions$class))
+f1_by_poly <- do.call(rbind, lapply(cv_results, function(x) {
+  unique_polys <- unique(x$test_data$poly_id)  
+  results <- lapply(unique_polys, function(poly) {
+    poly_pixels <- x$test_data[x$test_data$poly_id == poly, ]
+    poly_preds <- x$predictions$class[x$test_data$poly_id == poly]
+    
+    if (nrow(poly_pixels) == 0) return(NULL)  
+  
+    cm <- table(poly_pixels$Liana, poly_preds)
+    
+    f1_scores <- numeric(ncol(cm))
+    names(f1_scores) <- colnames(cm)
+    
+    for (i in 1:ncol(cm)) {
+      cls <- colnames(cm)[i]
+      tp <- cm[cls, cls]
+      fp <- sum(cm[, cls]) - tp
+      fn <- sum(cm[cls, ]) - tp
+      
+      precision <- ifelse(tp + fp == 0, 0, tp / (tp + fp))
+      recall <- ifelse(tp + fn == 0, 0, tp / (tp + fn))
+      f1_scores[i] <- ifelse((precision + recall) == 0, 0, 2 * precision * recall / (precision + recall))
+    }
+    
+    data.frame(
+      fold = x$fold,
+      poly_id = poly,
+      LianaOriginal = unique(poly_pixels$Liana), 
+      f1_0 = ifelse("0" %in% names(f1_scores), f1_scores["0"], NA),
+      f1_1 = ifelse("1" %in% names(f1_scores), f1_scores["1"], NA),
+      f1_macro = mean(f1_scores, na.rm = TRUE) 
+    )
+  })
+  do.call(rbind, results)  
+}))
 
-confusion_matrix_cv <- table(True = all_true, Predicted = all_pred)
-print(confusion_matrix_cv)
+f1_by_poly$f1_mean <- f1_by_poly$f1_macro * 100 
 
-cm_cv <- confusionMatrix(
-  factor(all_pred, levels = c("0", "1")),
-  factor(all_true, levels = c("0", "1")),
-  positive = "1"
+p4_f1_blob <- ggplot() +
+  geom_jitter(
+    data = f1_by_poly,
+    aes(x = LianaOriginal, y = f1_mean, shape = factor(fold), fill = factor(fold)),
+    width = 0.15, alpha = 0.5, size = 2.5, color = "black", stroke = 0.3
+  ) +
+  geom_boxplot(
+    data = f1_by_poly,
+    aes(x = LianaOriginal, y = f1_mean, color = LianaOriginal),
+    fill = NA, linewidth = 0.8, show.legend = FALSE
+  ) +
+  scale_color_manual(values = c("0" = "#ABABAB", "1" = "#001312")) +
+  scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5" = "grey")) +
+  scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
+  labs(
+    x = "Liana class in manual delineation",
+    y = "F1-score per patch (%)",
+    title = "F1-score by patch and by fold (No filter)",
+    caption = paste0("Overall mean F1-score = ", round(mean(cv_f1_macro, na.rm = TRUE), 3)),
+    shape = "Fold", fill = "Fold"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+p4_f1_fold_plots_blob <- lapply(1:5, function(current_fold) {
+  fold_data <- subset(f1_by_poly, fold == current_fold)
+  fold_f1 <- cv_f1_macro[current_fold]  # F1-score moyen du fold
+  
+  ggplot() +
+    geom_boxplot(
+      data = fold_data,
+      aes(x = LianaOriginal, y = f1_mean, color = LianaOriginal),
+      fill = NA, linewidth = 0.8, show.legend = FALSE
+    ) +
+    geom_jitter(
+      data = fold_data,
+      aes(x = LianaOriginal, y = f1_mean, fill = factor(fold), shape = factor(fold)),
+      width = 0.15, alpha = 0.7, size = 2.5, color = "black", stroke = 0.3
+    ) +
+    scale_color_manual(values = c("0" = "#ABABAB", "1" = "#001312")) +
+    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +
+    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
+    labs(
+      x = "Liana class in manual delineation",
+      y = "F1-score per patch (%)",
+      title = paste("F1-score on fold", current_fold),
+      caption = paste0("Fold mean F1-score = ", round(fold_f1, 3))
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")
+})
+
+grid.arrange(
+  grobs = c(p4_f1_fold_plots_blob, p4_f1_blob),
+  ncol = 2,
+  top = textGrob("F1-score by patch and by fold (No filter)",
+                 gp = gpar(fontsize = 12, fontface = "bold"))
 )
-print(cm_cv) #95% CI [1] = F1-Score
-
-confusion_df_cv <- as.data.frame(confusion_matrix_cv)
-colnames(confusion_df_cv) <- c("True", "Predicted", "Freq")
-
-ggplot(confusion_df_cv, aes(x = True, y = Predicted, fill = Freq)) +
-  geom_tile() +
-  geom_text(aes(label = Freq), color ="white") +
-  scale_fill_gradient(low = "red", high = "blue") +
-  labs(x = "True", y = "Predicted", title = "Confusion matrix for CV (Illu filter)") +
-  theme_minimal()
-
-save.image(file = file.path("Classification_R", "LianaClassification", "myEnvironment.RData"))
-
 
 # Boxplot illu ####
 label_blob_illu <- rasterize(blob, illu, field = "Type")       # Labels MD

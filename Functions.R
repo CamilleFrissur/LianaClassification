@@ -342,3 +342,20 @@ stratified_group_kfold <- function(data, group_col, stratify_col, k = 5, seed = 
   }
   lapply(folds, function(groups) which(data[[group_col]] %in% groups))
 }
+
+calculate_f1_manual <- function(true_labels, predicted_labels) {
+  cm <- table(true_labels, predicted_labels)
+  f1_scores <- numeric(ncol(cm))
+  names(f1_scores) <- colnames(cm)  
+  for (i in 1:ncol(cm)) {
+    cls <- colnames(cm)[i]          
+    tp <- cm[cls, cls]              
+    fp <- sum(cm[, cls]) - tp       
+    fn <- sum(cm[cls, ]) - tp       
+    precision <- ifelse(tp + fp == 0, 0, tp / (tp + fp))
+    recall <- ifelse(tp + fn == 0, 0, tp / (tp + fn))
+    f1_scores[i] <- ifelse((precision + recall) == 0, 0, 2 * precision * recall / (precision + recall))
+  }
+    f1_macro <- mean(f1_scores)
+  return(f1_macro)
+}
