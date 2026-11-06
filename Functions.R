@@ -228,24 +228,37 @@ run_chi2 <- function(pixels1, pixels2, name1, name2) {
   }
 }
 
-run_kappa <- function(pixels1, pixels2, name1, name2) {
-  tab <- table(pixels1, pixels2)
-  kappa <- psych::cohen.kappa(tab)$kappa
-  cat(sprintf("\n--- %s vs %s (Kappa) ---\n", name1, name2))
-  cat(sprintf("Cohen's Kappa = %.4f\n", kappa))
-  if (kappa <= 0) {
-    cat("→ No agreement (κ ≤ 0)\n")
-  } else if (kappa <= 0.20) {
-    cat("→ Slight agreement (0 < κ ≤ 0.20)\n")
-  } else if (kappa <= 0.40) {
-    cat("→ Fair agreement (0.20 < κ ≤ 0.40)\n")
-  } else if (kappa <= 0.60) {
-    cat("→ Moderate agreement (0.40 < κ ≤ 0.60)\n")
-  } else if (kappa <= 0.80) {
-    cat("→ Substantial agreement (0.60 < κ ≤ 0.80)\n")
-  } else {
-    cat("→ Almost perfect agreement (κ > 0.80)\n")
+calculate_cohen_kappa <- function(r1, r2) {
+  if (!identical(ext(r1), ext(r2)) || !identical(res(r1), res(r2))) {
+    warning("Rasters do not have the same extent or resolution. Use of intersection.")
+    r1 <- mask(r1, r2)  
+    r2 <- mask(r2, r1)
   }
+  
+  v1 <- as.logical(as.vector(r1, mode = "integer"))
+  v2 <- as.logical(as.vector(r2, mode = "integer"))
+  
+  # 3. Compter les combinaisons avec table() (évite les débordements)
+  tab <- table(v1, v2, useNA = "no")  # useNA="no" pour ignorer les NA
+  if (length(tab) < 4) {
+    stop("Not enough combination to calcultate Kappa (Need of TRUE/TRUE, TRUE/FALSE, FALSE/TRUE, FALSE/FALSE).")
+  }
+  
+  a <- tab[4]  # TRUE/TRUE
+  b <- tab[3]  # TRUE/FALSE
+  c <- tab[2]  # FALSE/TRUE
+  d <- tab[1]  # FALSE/FALSE
+  N <- a + b + c + d
+  
+  p_o <- (a + d) / N
+  p1_true <- (a + b) / N
+  p2_true <- (a + c) / N
+  p1_false <- (c + d) / N
+  p2_false <- (b + d) / N
+  p_e <- (p1_true * p2_true) + (p1_false * p2_false)
+  
+  kappa <- (p_o - p_e) / (1 - p_e)
+  return(kappa)
 }
 
 # Spectrum ####
