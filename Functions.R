@@ -353,6 +353,10 @@ extract_bhatt_dist <- function(dist_raw) {
   tryCatch(as.numeric(dist_raw), error = function(e) NA)
 }
 
+regularize_cov <- function(sigma, epsilon = 1e-10) {
+  diag(sigma) <- diag(sigma) + epsilon * max(diag(sigma), 1)
+  return(sigma)
+}
 
 bhatt_between <- function(df, label_col, class1, class2, epsilon = 1e-10) {
   exclude_cols <- c("poly_id", "Liana", "LianaOriginal", "Type")
