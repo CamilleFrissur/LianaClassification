@@ -192,9 +192,10 @@ area_blob_filt <- area_blob_filt / m_blob
 # save(area_crowns_filt, area_blob_filt, file = "Classification_R/LianaClassification/areas_NIR_norm.RData")
 # load("Classification_R/LianaClassification/areas_NIR_norm.RData")
 
-## Correlation  between filters ##########################################
+# Correlation  between filters ##########################################
 
-### Blob data prep
+## Chi² ####
+### Blob
 reference_blob <- area_blob_filt_norm
 mask_valid_blob <- !is.na(reference_blob[[1]])  
 
@@ -204,8 +205,11 @@ pixels_vnir_blob <- as.matrix(VNIR_blob_out$label_filt)[mask_valid_blob]
 
 stopifnot(length(pixels_illu_blob) == length(pixels_nir_blob), length(pixels_illu_blob) == length(pixels_vnir_blob))
 
+run_chi2(pixels_illu_blob, pixels_nir_blob, "illu", "NIR")
+run_chi2(pixels_nir_blob, pixels_vnir_blob, "NIR", "VNIR")
+run_chi2(pixels_vnir_blob, pixels_illu_blob, "VNIR", "illu")
 
-### Crowns data prep
+### Crowns
 reference_crowns <- area_crowns_filt
 mask_valid_crowns <- !is.na(as.matrix(reference_crowns[[1]]))  
 
@@ -215,46 +219,48 @@ pixels_vnir_crowns <- as.matrix(VNIR_crowns_out$label_filt)[mask_valid_crowns]
 
 stopifnot(length(pixels_illu_crowns) == length(pixels_nir_crowns), length(pixels_illu_crowns) == length(pixels_vnir_crowns))
 
-
-### Chi² ####
-
-### Blob
-run_chi2(pixels_illu_blob, pixels_nir_blob, "illu", "NIR")
-run_chi2(pixels_nir_blob, pixels_vnir_blob, "NIR", "VNIR")
-run_chi2(pixels_vnir_blob, pixels_illu_blob, "VNIR", "illu")
-
-### Crowns
 run_chi2(pixels_illu_crowns, pixels_nir_crowns, "illu", "NIR")
 run_chi2(pixels_nir_crowns, pixels_vnir_crowns, "NIR", "VNIR")
 run_chi2(pixels_vnir_crowns, pixels_illu_crowns, "VNIR", "illu")
 
-### Cohen's Kappa ####
+## Cohen's Kappa ####
+bool_illu_crowns <- !is.na(illu_crowns_out$area_filt)
+bool_illu_blob <- !is.na(illu_blob_out$area_filt)
 
-# BLOB 
-mask_valid_blob <- !is.na(as.matrix(reference_blob[[1]])) &
-  !is.na(as.matrix(illu_blob_out$label_filt)) &
-  !is.na(as.matrix(NIR_blob_out$label_filt)) &
-  !is.na(as.matrix(VNIR_blob_out$label_filt))
+bool_NIR_crowns <- !is.na(NIR_crowns_out$area_filt)
+bool_NIR_blob <- !is.na(NIR_blob_out$area_filt)
 
-pixels_ref_blob    <- as.vector(as.matrix(reference_blob[[1]]))[mask_valid_blob]
-pixels_illu_blob_med   <- as.vector(as.matrix(illu_blob_out$label_filt))[mask_valid_blob]
-pixels_nir_blob_20    <- as.vector(as.matrix(NIR_blob_out$label_filt))[mask_valid_blob]
-pixels_vnir_blob   <- as.vector(as.matrix(VNIR_blob_out$label_filt))[mask_valid_blob]
+bool_VNIR_crowns <- !is.na(VNIR_crowns_out$area_filt)
+bool_VNIR_blob <- !is.na(VNIR_blob_out$area_filt)
 
-# CROWNS
-mask_valid_crowns <- !is.na(as.matrix(reference_crowns[[1]])) &
-  !is.na(as.matrix(illu_crowns_out$label_filt)) &
-  !is.na(as.matrix(NIR_crowns_out$label_filt)) &
-  !is.na(as.matrix(VNIR_crowns_out$label_filt))
+kappa_crowns_illu_NIR <- calculate_cohen_kappa(bool_illu_crowns, bool_NIR_crowns)
+kappa_blob_illu_NIR <- calculate_cohen_kappa(bool_illu_blob, bool_NIR_blob)
 
-pixels_ref_crowns  <- as.vector(as.matrix(reference_crowns[[1]]))[mask_valid_crowns]
-pixels_illu_crowns_med <- as.vector(as.matrix(illu_crowns_out$label_filt))[mask_valid_crowns]
-pixels_nir_crowns_20  <- as.vector(as.matrix(NIR_crowns_out$label_filt))[mask_valid_crowns]
-pixels_vnir_crowns <- as.vector(as.matrix(VNIR_crowns_out$label_filt))[mask_valid_crowns]
+kappa_crowns_illu_VNIR <- calculate_cohen_kappa(bool_illu_crowns, bool_VNIR_crowns)
+kappa_blob_illu_VNIR <- calculate_cohen_kappa(bool_illu_blob, bool_VNIR_blob)
 
-run_kappa(pixels_illu_blob, pixels_nir_blob, "illu", "NIR")
-run_kappa(pixels_nir_blob, pixels_vnir_blob, "NIR", "VNIR")
-run_kappa(pixels_vnir_blob, pixels_illu_blob, "VNIR", "illu")
+kappa_crowns_NIR_VNIR <- calculate_cohen_kappa(bool_NIR_crowns, bool_VNIR_crowns)
+kappa_blob_NIR_VNIR <- calculate_cohen_kappa(bool_NIR_blob, bool_VNIR_blob)
+
+cat("Kappa (crowns, illu vs NIR):", kappa_crowns_illu_NIR, "\n")
+cat("Kappa (blob, illu vs NIR):", kappa_blob_illu_NIR, "\n")
+cat("Kappa (crowns, illu vs VNIR):", kappa_crowns_illu_VNIR, "\n")
+cat("Kappa (blob, illu vs VNIR):", kappa_blob_illu_VNIR, "\n")
+cat("Kappa (crowns, NIR vs VNIR):", kappa_crowns_NIR_VNIR, "\n")
+cat("Kappa (blob, NIR vs VNIR):", kappa_blob_NIR_VNIR, "\n")
+
+### Kappa weighted mean
+n_crowns <- sum(!is.na(values(bool_illu_crowns)), na.rm = TRUE)
+n_blob_   <- sum(!is.na(values(bool_illu_blob)),   na.rm = TRUE)
+
+mean_kappa_illu_NIR <- (kappa_crowns_illu_NIR * n_crowns + kappa_blob_illu_NIR * n_blob) / (n_crowns + n_blob)
+mean_kappa_illu_VNIR <- (kappa_crowns_illu_VNIR * n_crowns + kappa_blob_illu_VNIR * n_blob) / (n_crowns + n_blob)
+mean_kappa_NIR_VNIR <- (kappa_crowns_NIR_VNIR * n_crowns + kappa_blob_NIR_VNIR * n_blob) / (n_crowns + n_blob)
+
+cat("Weighted mean kappa (illu vs NIR) :", mean_kappa_illu_NIR, "\n")
+cat("Weighted mean kappa (illu vs VNIR) :", mean_kappa_illu_VNIR, "\n")
+cat("Weighted mean kappa (NIR vs VNIR) :", mean_kappa_NIR_VNIR, "\n")
+
 
 # Dimensionality reduction and data visualization ###############################
 
@@ -429,369 +435,6 @@ umap_plot_poly <- data.frame(
   Type = as.factor(label_blob_poly_valid)
 )
 
-
-
-# # Bhattacharyya distance ###################################################
-# 
-# bhatt_dist_pairs <- function(pixel_matrix, groups) {
-#   
-#   ids <- unique(groups)
-#   
-#   # calculate mu & Sigma for each group
-#   group_stats <- lapply(ids, function(id) {
-#     px <- pixel_matrix[groups == id, , drop = FALSE] #drop = FALSE keep the class as matrix
-#     if (nrow(px) <= ncol(px)) return(NULL)  # check if n_pixels/n_bands so sigma can be inverted
-#     list(mu = colMeans(px), Sigma = cov(px), n = nrow(px)) #else
-#   })
-#   names(group_stats) <- ids
-#   group_stats <- Filter(Negate(is.null), group_stats) #remove groupe with not enough pixels , i.e for which sigma was not calculated
-#   
-#   valid_ids <- names(group_stats) 
-#   if (length(valid_ids) < 2) { #we need at least two groups to calculate a distance
-#     warning("Not enough groups to calculate a distance")
-#     return(NULL)
-#   }
-#   
-#   #Calculate the number of pairs
-#   n_pairs <- length(valid_ids) * (length(valid_ids) - 1) / 2
-#   
-#   #Create an empty df
-#   results <- data.frame(
-#     group1 = character(n_pairs),
-#     group2 = character(n_pairs),
-#     dist_bhatt = numeric(n_pairs),
-#     coeff_bhatt = numeric(n_pairs),
-#     n1 = numeric(n_pairs),
-#     n2 = numeric(n_pairs)
-#   )
-#   
-#   # Check every possible pairs and calculate mu and sigma
-#   row_i <- 1
-#   for (i in 1:(length(valid_ids) - 1)) {
-#     for (j in (i + 1):length(valid_ids)) {
-#       
-#       g1 <- valid_ids[i]
-#       g2 <- valid_ids[j]
-#       
-#       s1 <- group_stats[[g1]]
-#       s2 <- group_stats[[g2]]
-#       
-#       # Calculate the bhattacharya distance
-#       d <- tryCatch(
-#         bhattacharyya.dist(s1$mu, s2$mu, s1$sigma, s2$sigma),
-#         error = function(e) NA)
-#       
-#       results$group1[row_i] <- g1
-#       results$group2[row_i] <- g2
-#       results$dist_bhatt[row_i] <- d
-#       results$coeff_bhatt[row_i] <- exp(-d)
-#       results$n1[row_i] <- s1$n
-#       results$n2[row_i] <- s2$n
-#       
-#       row_i <- row_i + 1
-#     }
-#   }
-#   
-#   dist_df <- results
-#   
-#   return(dist_df)
-# }
-# 
-# # bhatt_dist_btwn <- function(pixel_matrix, pixel_label, label1, label2) {
-# #   keep <- pixel_label %in% c(label1, label2)
-# #   bhatt_dist_pairs(pixel_matrix[keep, ], pixel_label[keep])
-# # }
-# 
-# bhatt_dist_within <- function(area_filtered, vect_obj, label_name, target_label) {
-#   
-#   vect_obj$poly_id <- seq_len(nrow(vect_obj))
-#   poly_id_r <- rasterize(vect_obj, area_filtered, field = "poly_id")
-#   
-#   area_matrix <- as.matrix(area_filtered)
-#   poly_id_m <- as.matrix(poly_id_r)[, 1]
-#   class_by_id <- values(vect_obj)[[label_name]]
-#   
-#   na_per_band <- colSums(is.na(area_matrix))
-#   good_bands <- na_per_band < nrow(area_matrix)
-#   
-#   valid_idx <- which(!is.na(poly_id_m) & complete.cases(area_matrix[, good_bands]))
-#   
-#   pixel_matrix <- area_matrix[valid_idx, good_bands]
-#   pixel_poly_id <- poly_id_m[valid_idx]
-#   
-#   keep_ids <- which(class_by_id == target_label)
-#   keep_px <- pixel_poly_id %in% keep_ids
-#   
-#   bhatt_dist_pairs(pixel_matrix[keep_px, ], pixel_poly_id[keep_px])
-# }
-# 
-# 
-# # ##Distance between classes
-# # 
-# bhatt_dist_btwn <- function (matrix, matrix_label, label1, label2){
-# 
-#   # #Reduce dimensionality
-#   # max_ncp <- min(nrow(matrix) - 1, ncol(matrix))
-#   # res_pca <- PCA(matrix, scale.unit = TRUE, ncp = max_ncp, graph = FALSE)
-#   # cum_var <- res_pca$eig[, "cumulative percentage of variance"]
-#   # n_components <- which(cum_var >= 85)[1]
-#   #
-#   # matrix_reduced <- res_pca$ind$coord[, 1:n_components]
-#   #
-#   # plot(cum_var)
-# 
-#   matrix_reduced <- matrix
-# 
-#   #Separate groups
-#   group0 <- matrix_reduced[matrix_label == label1, ]
-#   group1 <- matrix_reduced[matrix_label == label2, ]
-# 
-# 
-#   # Test if the distribution is Gaussian first
-#   shapiro_group0 <- apply(group0, 2, function(x) shapiro.test(x)$p.value)
-#   shapiro_group1 <- apply(group1, 2, function(x) shapiro.test(x)$p.value)
-# 
-#   # par(mfrow = c(2, 3))
-#   # for (i in 1:n_components) {
-#   #   palevioletred1norm(group0[, i], main = paste("Composante", i, "- groupe 0"))
-#   #   palevioletred1line(group0[, i])
-#   # }
-#   #
-#   # par(mfrow = c(2, 3))
-#   # for (i in 1:n_components) {
-#   #   palevioletred1norm(group1[, i], main = paste("Composante", i, "- groupe 1"))
-#   #   palevioletred1line(group1[, i])
-#   # }
-# 
-#   # Calculate mean vectors
-#   mu0 <- colMeans(group0)
-#   mu1 <- colMeans(group1)
-# 
-#   # Calculate covariance matrix
-#   sigma0 <- cov(group0)
-#   sigma1 <- cov(group1)
-# 
-#   
-#     
-#   dist_bhatt <- bhattacharyya.dist(mu0, mu1, sigma0, sigma1)
-# 
-#   coeff_bhatt <- exp(-dist_bhatt)
-# 
-#   output <- list(
-#     mean0 = mu0,
-#     mean1 = mu1,
-#     dist_bhatt = dist_bhatt,
-#     coeff_bhatt = coeff_bhatt,
-#     shapiro_group0 = shapiro_group0,
-#     shapiro_group1 = shapiro_group1 #,
-#     # n_components = n_components
-#   )
-# 
-#   return(output)
-# }
-# 
-# # With DP dataset
-# 
-# separability_dp_between <- bhatt_dist_btwn(crowns_poly_valid[,1:135], label_crowns_poly_valid, "CR0", "CR3")
-# 
-# #Check if we keep the Bhattacharya distance
-# separability_dp_between$shapiro_group0
-# separability_dp_between$shapiro_group0 < 0.05
-# 
-# separability_dp_between$shapiro_group1
-# separability_dp_between$shapiro_group1 < 0.05
-# 
-# #Results
-# bhatt_dist_dp_LianaVSTrees <- separability_dp_between$dist_bhatt
-# bhatt_dist_dp_LianaVSTrees
-# 
-# bhatt_coeff_dp_LianaVSTrees <-separability_dp_between$coeff_bhatt
-# bhatt_coeff_dp_LianaVSTrees
-# 
-# ## With MD dataset 
-# separability_md_within <- bhatt_dist_btwn(blob_poly_valid, label_blob_poly_valid, 0, 1)
-# 
-# separability_md_within$shapiro_group0
-# separability_md_within$shapiro_group0<0.05
-# 
-# separability_md_within$shapiro_group1
-# separability_md_within$shapiro_group1<0.05
-# 
-# bhatt_dist_md_LianaVSTrees <- separability_md_within$dist_bhatt
-# bhatt_dist_md_LianaVSTrees
-# 
-# bhatt_coeff_md_LianaVSTrees <- separability_md_within$coeff_bhatt
-# bhatt_coeff_md_LianaVSTrees
-
-## Distance within classes ####
-
-# bhatt_dist_within <- function(area_filtered, area_vector, label_name, target_label){
-#
-#   #Get unique id for each polygon
-#   area_vector$poly_id <- seq_len(nrow(area_vector))
-#
-#   poly_id_r <- rasterize(area_vector, area_filtered, field = "poly_id")
-#
-#   area_matrix <- as.matrix(area_filtered)
-#   poly_id_m <- as.matrix(poly_id_r)[, 1]
-#   class_by_id <- values(area_vector)[[label_name]]
-#
-#   na_per_band <- colSums(is.na(area_matrix))
-#   good_bands <- na_per_band < nrow(area_matrix)
-#
-#   valid_idx <- which(!is.na(poly_id_m) & complete.cases(area_matrix[, good_bands]))
-#
-#   pixel_matrix <- area_matrix[valid_idx, good_bands]
-#   pixel_poly_id <- poly_id_m[valid_idx]
-#
-#   # Keep only the pixels of the target label
-#   keep_ids <- which(class_by_id == target_label)
-#   keep_px <- pixel_poly_id %in% keep_ids
-#
-#   pixel_matrix <- pixel_matrix[keep_px, ]
-#   pixel_poly_id <- pixel_poly_id[keep_px]
-#
-#   # Dimensionality reduction
-#   max_ncp <- min(nrow(pixel_matrix) - 1, ncol(pixel_matrix))
-#   res_pca <- PCA(pixel_matrix, scale.unit = TRUE, ncp = max_ncp, graph = FALSE)
-#   cum_var <- res_pca$eig[, "cumulative percentage of variance"]
-#   n_components <- which(cum_var >= 85)[1]
-#
-#   pixel_reduced <- res_pca$ind$coord[, 1:n_components]
-#
-#   # Calculate mu & sigma for each polygon
-#   polygon_ids <- unique(pixel_poly_id)
-#
-#   polygon_stats <- lapply(polygon_ids, function(id) {
-#     px <- pixel_reduced[pixel_poly_id == id, , drop = FALSE]
-#     if (nrow(px) <= n_components) return(NULL)  # not enough pixels to calculate sigma
-#     list(mu = colMeans(px), Sigma = cov(px), n = nrow(px))
-#   })
-#   names(polygon_stats) <- polygon_ids
-#   polygon_stats <- Filter(Negate(is.null), polygon_stats)
-#
-#   ids <- names(polygon_stats)
-#   if (length(ids) < 2) {
-#     warning("Not enough valid polygons to calculate intra-class distances.")
-#     return(NULL)
-#   }
-#
-#   # Distance by pairs
-#   pairs <- combn(ids, 2, simplify = FALSE)
-#
-#   dist_df <- do.call(rbind, lapply(pairs, function(p) {
-#     s1 <- polygon_stats[[p[1]]]
-#     s2 <- polygon_stats[[p[2]]]
-#     d <- tryCatch(
-#       bhattacharyya.dist(s1$mu, s2$mu, s1$Sigma, s2$Sigma),
-#       error = function(e) NA
-#     )
-#     data.frame(poly1 = p[1], poly2 = p[2], dist_bhatt = d, coeff_bhatt = exp(-d))
-#   }))
-#
-#   output <- list(
-#     distances = dist_df,
-#     n_polygons = length(ids),
-#     n_components = n_components,
-#     mean_dist = mean(dist_df$dist_bhatt, na.rm = TRUE),
-#     mean_coeff = mean(dist_df$coeff_bhatt, na.rm = TRUE)
-#   )
-#
-#   return(output)
-# }
-#
-# #Results
-#
-# bhatt_within_dp_CR0 <- bhatt_dist_within(illu_crowns_out$area_filt, crowns, "LianaFullC", "CR0")
-# bhatt_within_dp_CR0$mean_dist
-# bhatt_within_dp_CR0$mean_coeff
-# sum(is.na(bhatt_within_dp_CR0$distances$dist_bhatt))   # number of failed pairs (singular covariance, etc.)
-#
-# bhatt_within_dp_CR1 <- bhatt_dist_within(illu_crowns_out$area_filt, crowns, "LianaFullC", "CR1")
-# bhatt_within_dp_CR2 <- bhatt_dist_within(illu_crowns_out$area_filt, crowns, "LianaFullC", "CR2")
-#
-# bhatt_within_dp_CR3 <- bhatt_dist_within(illu_crowns_out$area_filt, crowns, "LianaFullC", "CR3")
-# bhatt_within_dp_CR3$mean_dist
-# bhatt_within_dp_CR3$mean_coeff
-# sum(is.na(bhatt_within_dp_CR0$distances$dist_bhatt))
-#
-# bhatt_within_md_0 <- bhatt_dist_within(illu_blob_out$area_filt, blob, "Type", "0")
-# bhatt_within_md_0$mean_dist
-# bhatt_within_md_0$mean_coeff
-# sum(is.na(bhatt_within_md_0$distances$dist_bhatt))
-#
-# bhatt_within_md_1 <- bhatt_dist_within(illu_blob_out$area_filt, blob, "Type", "1")
-# bhatt_within_md_1$mean_dist
-# bhatt_within_md_1$mean_coeff
-# sum(is.na(bhatt_within_md_1$distances$dist_bhatt))
-#
-
-## Results boxplot ####
-
-# between_df <- data.frame(
-#   group = c("DP CR0 vs CR3", "MD 0 vs 1"),
-#   dist_bhatt = c(bhatt_dist_dp_LianaVSTrees, bhatt_dist_md_LianaVSTrees),
-#   coeff_bhatt = c(bhatt_coeff_dp_LianaVSTrees, bhatt_coeff_md_LianaVSTrees),
-#   type = "Between"
-# )
-#
-# combine_within <- function(result, group_name) {
-#   df <- result$distances
-#   df$group <- group_name
-#   df
-# }
-#
-# all_within <- rbind(
-#   combine_within(bhatt_within_dp_CR0, "DP CR0"),
-#   combine_within(bhatt_within_dp_CR1, "DP CR1"),
-#   combine_within(bhatt_within_dp_CR2, "DP CR2"),
-#   combine_within(bhatt_within_dp_CR3, "DP CR3"),
-#   combine_within(bhatt_within_md_0, "MD 0"),
-#   combine_within(bhatt_within_md_1, "MD 1")
-# )
-#
-# ggplot(all_within, aes(x = group, y = dist_bhatt, fill = group)) +
-#   geom_boxplot(outlier.shape = NA) +
-#   coord_cartesian(ylim = c(0, quantile(all_within$dist_bhatt, 0.95, na.rm = TRUE))) +
-#   labs(x = "Group",
-#        y = "Bhattacharyya distance",
-#        title = "Bhattacharyya distance within classes") +
-#   theme(legend.position = "none")
-#
-# all_within$type <- "Within"
-#
-# combined <- rbind(
-#   all_within[, c("group", "dist_bhatt", "coeff_bhatt", "type")],
-#   between_df
-# )
-#
-# combined$group <- factor(combined$group, levels = c(
-#   "DP CR0", "DP CR1", "DP CR2", "DP CR3", "MD 0", "MD 1",
-#   "DP CR0 vs CR3", "MD 0 vs 1"
-# ))
-#
-#
-# ggplot(combined, aes(x = group, y = dist_bhatt)) +
-#   geom_boxplot(
-#     data = subset(combined, type == "Within"),
-#     aes(fill = group), outlier.shape = NA) +
-#   geom_point(
-#     data = subset(combined, type == "Between"),
-#     color = "red", size = 3, shape = 18) +
-#   geom_text(
-#     data = subset(combined, type == "Between"),
-#     aes(label = round(dist_bhatt, 3)),
-#     color = "red", vjust = -1, size = 3.5, fontface = "bold")+
-#   scale_y_log10() +
-#   labs(
-#     x = "Group",
-#     y = "Bhattacharyya distance (log scale)",
-#     title = "Bhattacharya distance : within classes (boxplots) VS between classes (red dots)") +
-#   theme(legend.position = "none",
-#         axis.text.x = element_text(angle = 45, hjust = 1))
-#
-
-
 # Mean spectrum comparison ###################################################
 crowns_poly_valid <- sensor_to_keep(crowns_poly_valid, "swir")
 blob_poly_valid <- sensor_to_keep(blob_poly_valid, "swir")
@@ -888,12 +531,57 @@ for (g in unique(med_selected_smooth$group)) {
   }
 }
 
+# Bhattacharyya distance ###################################################
+
+#CROWNS
+crowns_df <- as.data.frame(crowns_filt_valid)
+crowns_df$ Liana <- as.factor(label_crowns_valid)
+
+crowns_df_pure <- as.data.frame(crowns_filt_valid)
+crowns_df_pure$LianaOriginal <- as.factor(label_crowns_valid)
+crowns_df_pure$Liana <- as.character(label_crowns_valid)
+crowns_df_pure$Liana[crowns_df_pure$Liana %in% c("0", "1")] <- "0"
+crowns_df_pure$Liana[crowns_df_pure$Liana %in% c("2", "3")] <- "1"
+crowns_df_pure$Liana <- as.factor(crowns_df_pure$Liana)
+crowns_df_pure$Type <- factor("crowns", levels = c("crowns", "blob"))
+crowns$poly_id <- seq_len(nrow(crowns))
+poly_id_r <- rasterize(crowns, area_crowns_filt, field = "poly_id")
+poly_id_m <- as.matrix(poly_id_r)[, 1]
+poly_id_valid <- poly_id_m[DP_per_pixel$valid_idx]
+crowns_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
+
+bhatt_cr0_cr3_random <- bhatt_between_random(crowns_df_pure, "LianaOriginal", "0", "3", n_repeats = 100)
+bhatt_cr0_cr3_full <- bhatt_between(crowns_df_pure, "LianaOriginal", "0", "3")
+bhatt_cr0_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "0", n_repeats = 100)
+bhatt_cr3_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "3", n_repeats = 100)
+  
+# BLOB 
+blob_df <- as.data.frame(blob_filt_valid)
+blob_df$ Liana <- as.factor(label_blob_valid)
+
+blob_df_pure <- as.data.frame(blob_filt_valid)
+blob_df_pure$Liana <- as.factor(label_blob_valid)
+blob_df_pure$Type <- factor("blob", levels = c("crowns", "blob"))
+
+# blob_df_pure$LianaOriginal <- NA
+# blob_df_pure$poly_id <- 0
+blob_df_pure$LianaOriginal <- blob_df_pure$Liana
+blob$poly_id <- seq_len(nrow(blob))
+poly_id_r <- rasterize(blob, area_blob_filt, field = "poly_id")
+poly_id_m <- as.matrix(poly_id_r)[, 1]
+poly_id_valid <- poly_id_m[MD_per_pixel$valid_idx]
+blob_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
+
+
+bhatt_md0_md1_random <- bhatt_between_random(blob_df_pure, "Liana", "0", "1", n_repeats = 100)
+bhatt_md0_md1_full <- bhatt_between(blob_df_pure, "Liana", "0", "1")
+bhatt_md0_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "0", n_repeats = 100)
+bhatt_md1_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "1", n_repeats = 100)
+
 
 # Linear Discriminant Analysis (LDA) #########################################
 
 ## Within DP dataset
-crowns_df <- as.data.frame(crowns_filt_valid)
-crowns_df$ Liana <- as.factor(label_crowns_valid)
 
 set.seed(123)
 crowns_df[,1:ncol(crowns_filt_valid)]<- scale(crowns_df[,1:ncol(crowns_filt_valid)])
@@ -932,9 +620,6 @@ cv_lda_crowns_accuracy
 prop.table(table(model_cv_crowns$pred$pred))
 
 ### Within MD dataset
-blob_df <- as.data.frame(blob_filt_valid)
-blob_df$ Liana <- as.factor(label_blob_valid)
-
 set.seed(123)
 blob_df[,1:ncol(crowns_filt_valid)]<- scale(blob_df[,1:ncol(crowns_filt_valid)]) #ncol(crowns_filt_valid) should be equal to ncol(blob_filt_valid)
 sample_blob <- sample(c(TRUE, FALSE), nrow(blob_df), replace=TRUE, prob=c(0.7,0.3))
@@ -1006,28 +691,7 @@ prop.table(table(model_cv_blob$pred$pred))
 # liana_prop_pred
 # noliana_prop_pred
 
-## LDA trained on pure labels to check % of liana predicted ####
-crowns_df_pure <- as.data.frame(crowns_filt_valid)
-crowns_df_pure$LianaOriginal <- as.factor(label_crowns_valid)
-
-crowns_df_pure$Liana <- as.character(label_crowns_valid)
-crowns_df_pure$Liana[crowns_df_pure$Liana %in% c("0", "1")] <- "0"
-crowns_df_pure$Liana[crowns_df_pure$Liana %in% c("2", "3")] <- "1"
-crowns_df_pure$Liana <- as.factor(crowns_df_pure$Liana)
-
-crowns_df_pure$Type <- factor("crowns", levels = c("crowns", "blob"))
-crowns$poly_id <- seq_len(nrow(crowns))
-poly_id_r <- rasterize(crowns, area_crowns_filt, field = "poly_id")
-poly_id_m <- as.matrix(poly_id_r)[, 1]
-poly_id_valid <- poly_id_m[DP_per_pixel$valid_idx]
-crowns_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
-
-blob_df_pure <- as.data.frame(blob_filt_valid)
-blob_df_pure$Liana <- as.factor(label_blob_valid)
-blob_df_pure$Type <- factor("blob", levels = c("crowns", "blob"))
-blob_df_pure$LianaOriginal <- NA
-blob_df_pure$poly_id <- 0
-
+## LDA trained on pure labels to check % of liana predicted ###
 common_cols <- intersect(names(crowns_df_pure), names(blob_df_pure))
 crowns_df_pure <- crowns_df_pure[, common_cols]
 blob_df_pure <- blob_df_pure[, common_cols]
@@ -1353,12 +1017,6 @@ grid.arrange(
 )
 
 #### For blob ####
-blob_df_pure$LianaOriginal <- blob_df_pure$Liana
-blob$poly_id <- seq_len(nrow(blob))
-poly_id_r <- rasterize(blob, area_blob_filt, field = "poly_id")
-poly_id_m <- as.matrix(poly_id_r)[, 1]
-poly_id_valid <- poly_id_m[MD_per_pixel$valid_idx]
-blob_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
 set.seed(123)
 folds_blob <- stratified_group_kfold(blob_df_pure, "poly_id", "Liana", k = 5)
 
@@ -1646,9 +1304,6 @@ grid.arrange(
   top = textGrob("F1-score by patch and by fold (NIR filter)",
                  gp = gpar(fontsize = 12, fontface = "bold"))
 )
-
-### StratifiedGroupKFold trained on all labels ####
-
 
 # Boxplot illu ####
 label_blob_illu <- rasterize(blob, illu, field = "Type")       # Labels MD

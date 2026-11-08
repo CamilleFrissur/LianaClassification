@@ -339,6 +339,183 @@ med_spectrum_by_group <- function(matrix_valid, labels_valid, dataset_name) {
   do.call(rbind, spectra_list)
 }
 
+# Bhattacharya ####
+
+extract_bhatt_dist <- function(dist_raw) {
+  if (is.null(dist_raw) || is.na(dist_raw)) return(NA)
+  
+  if (is.numeric(dist_raw) && length(dist_raw) == 1) return(as.numeric(dist_raw))
+  
+  if (inherits(dist_raw, "modulus")) return(as.numeric(dist_raw))
+  
+  if (is.list(dist_raw) && "modulus" %in% names(dist_raw)) return(as.numeric(dist_raw$modulus))
+  
+  tryCatch(as.numeric(dist_raw), error = function(e) NA)
+}
+
+
+bhatt_between <- function(df, label_col, class1, class2, epsilon = 1e-10) {
+  exclude_cols <- c("poly_id", "Liana", "LianaOriginal", "Type")
+  numeric_cols <- sapply(df, is.numeric)
+  numeric_cols[names(numeric_cols) %in% exclude_cols] <- FALSE
+  
+  data <- as.matrix(df[, numeric_cols, drop = FALSE])
+  labels <- df[[label_col]]
+  
+  d1 <- data[labels == class1, ]
+  d2 <- data[labels == class2, ]
+  
+  var_d1 <- apply(d1, 2, var)
+  var_d2 <- apply(d2, 2, var)
+  good_bands <- (var_d1 > 1e-12) & (var_d2 > 1e-12)
+  d1 <- d1[, good_bands, drop = FALSE]
+  d2 <- d2[, good_bands, drop = FALSE]
+  
+  if (ncol(d1) == 0) return(NA)
+  
+  mu1 <- colMeans(d1)
+  mu2 <- colMeans(d2)
+  sigma1 <- regularize_cov(cov(d1), epsilon)
+  sigma2 <- regularize_cov(cov(d2), epsilon)
+  
+  dist_raw <- tryCatch(bhattacharyya.dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
+  dist <- extract_bhatt_dist(dist_raw)
+  
+  if (is.na(dist)) return(NA)
+  
+  list(dist = dist, coeff = exp(-dist), n1 = nrow(d1), n2 = nrow(d2), p = ncol(d1))
+}
+
+bhatt_between_random <- function(df, label_col, class1, class2, n_repeats = 100, seed = 123, epsilon = 1e-10) {
+  df_filtered <- df[df[[label_col]] %in% c(class1, class2), ]
+  
+  exclude_cols <- c("poly_id", "Liana", "LianaOriginal", "Type")
+  numeric_cols <- sapply(df_filtered, is.numeric)
+  numeric_cols[names(numeric_cols) %in% exclude_cols] <- FALSE
+  
+  data <- as.matrix(df_filtered[, numeric_cols, drop = FALSE])
+  labels <- df_filtered[[label_col]]
+  
+  idx_class1 <- which(labels == class1)
+  idx_class2 <- which(labels == class2)
+  
+  distances <- numeric(n_repeats)
+  
+  set.seed(seed)
+  for (i in 1:n_repeats) {
+    set.seed(seed + i)
+    
+    sample_idx1 <- sample(idx_class1, size = floor(length(idx_class1) * 0.5), replace = FALSE)
+    sample_idx2 <- sample(idx_class2, size = floor(length(idx_class2) * 0.5), replace = FALSE)
+    
+    d1 <- data[sample_idx1, ]
+    d2 <- data[sample_idx2, ]
+    
+    var_d1 <- apply(d1, 2, var)
+    var_d2 <- apply(d2, 2, var)
+    good_bands <- (var_d1 > 1e-12) & (var_d2 > 1e-12)
+    d1 <- d1[, good_bands, drop = FALSE]
+    d2 <- d2[, good_bands, drop = FALSE]
+    
+    if (ncol(d1) == 0) {
+      distances[i] <- NA
+      next
+    }
+    
+    mu1 <- colMeans(d1)
+    mu2 <- colMeans(d2)
+    sigma1 <- regularize_cov(cov(d1), epsilon)
+    sigma2 <- regularize_cov(cov(d2), epsilon)
+    
+    dist_raw <- tryCatch({
+      bhattacharyya.dist(mu1, mu2, sigma1, sigma2)
+    }, error = function(e) NA)
+    
+    distances[i] <- extract_bhatt_dist(dist_raw)
+  }
+  
+  valid_dists <- distances[!is.na(distances)]
+  if (length(valid_dists) == 0) return(NA)
+  
+  list(
+    mean_dist = mean(valid_dists),
+    sd_dist = sd(valid_dists),
+    min_dist = min(valid_dists),
+    max_dist = max(valid_dists),
+    n_repeats = n_repeats,
+    n_valid = length(valid_dists),
+    all_distances = distances
+  )
+}
+
+bhatt_within_random <- function(df, poly_id_col, label_col, target_class,
+                                n_repeats = 100, seed = 123, epsilon = 1e-10) {
+  df_class <- df[df[[label_col]] == target_class, ]
+  unique_polys <- unique(df_class[[poly_id_col]])
+  unique_polys <- unique_polys[!is.na(unique_polys) & unique_polys != 0]
+  
+  if (length(unique_polys) < 2) {
+    warning(paste("Less than two poly per class", target_class))
+    return(NA)
+  }
+  
+  exclude_cols <- c(poly_id_col, label_col, "LianaOriginal", "Type")
+  numeric_cols <- sapply(df_class, is.numeric)
+  numeric_cols[names(numeric_cols) %in% exclude_cols] <- FALSE
+  
+  distances <- numeric(n_repeats)
+  
+  set.seed(seed)
+  for (i in 1:n_repeats) {
+    set.seed(seed + i)
+    shuffled_polys <- sample(unique_polys)
+    split_idx <- floor(length(shuffled_polys) / 2)
+    group1_polys <- shuffled_polys[1:split_idx]
+    group2_polys <- shuffled_polys[(split_idx + 1):length(shuffled_polys)]
+    
+    data1 <- df_class[df_class[[poly_id_col]] %in% group1_polys, numeric_cols, drop = FALSE]
+    data2 <- df_class[df_class[[poly_id_col]] %in% group2_polys, numeric_cols, drop = FALSE]
+    
+    data1 <- as.matrix(data1)
+    data2 <- as.matrix(data2)
+    
+    var1 <- apply(data1, 2, var)
+    var2 <- apply(data2, 2, var)
+    good_bands <- (var1 > 1e-12) & (var2 > 1e-12)
+    data1 <- data1[, good_bands, drop = FALSE]
+    data2 <- data2[, good_bands, drop = FALSE]
+    
+    if (ncol(data1) == 0) {
+      distances[i] <- NA
+      next
+    }
+    
+    mu1 <- colMeans(data1)
+    mu2 <- colMeans(data2)
+    sigma1 <- regularize_cov(cov(data1), epsilon)
+    sigma2 <- regularize_cov(cov(data2), epsilon)
+    
+    dist_raw <- tryCatch({
+      bhattacharyya.dist(mu1, mu2, sigma1, sigma2)
+    }, error = function(e) NA)
+    
+    distances[i] <- extract_bhatt_dist(dist_raw)
+  }
+  
+  valid_dists <- distances[!is.na(distances)]
+  if (length(valid_dists) == 0) return(NA)
+  
+  list(
+    mean_dist = mean(valid_dists),
+    sd_dist = sd(valid_dists),
+    min_dist = min(valid_dists),
+    max_dist = max(valid_dists),
+    n_repeats = n_repeats,
+    n_valid = length(valid_dists),
+    all_distances = distances
+  )
+}
+
 # LDA ####
 stratified_group_kfold <- function(data, group_col, stratify_col, k = 5, seed = 123) {
   set.seed(seed)

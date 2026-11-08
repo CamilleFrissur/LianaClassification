@@ -622,10 +622,10 @@ label_config <- data.frame(
   #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#ABABAB", "#001312"),
   #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#ABABAB", "#001312"),
   
-  linetype = c ("solid","solid","solid","solid", "solid", "solid")
+  linetype = c ("solid","solid","solid","solid", "solid", "solid"))
   #linetype = c ("solid","solid","solid","solid", "solid", "solid"))
 
-  ggplot(selected_smooth, aes(x = wavelength)) +
+  ggplot(med_selected_smooth, aes(x = wavelength)) +
     geom_ribbon(
       aes(
         ymin = med_smooth - sd_smooth,
@@ -667,7 +667,7 @@ label_config <- data.frame(
     ) +
     theme_minimal()
   
-  ggplot(selected_smooth, aes(x = wavelength)) +
+  ggplot(med_selected_smooth, aes(x = wavelength)) +
     geom_ribbon(
       aes(
         ymin = med_smooth - sd_smooth,
@@ -709,7 +709,7 @@ label_config <- data.frame(
     ) +
     theme_minimal()
   
-  ggplot(selected_smooth, aes(x = wavelength)) +
+  ggplot(med_selected_smooth, aes(x = wavelength)) +
     geom_ribbon(
       aes(
         ymin = med_smooth - sd_smooth,
@@ -751,7 +751,7 @@ label_config <- data.frame(
     ) +
     theme_minimal()
   
-  ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) +
+  ggplot(med_selected_smooth[med_selected_smooth$wavelength < 690,], aes(x = wavelength)) +
     geom_ribbon(
       aes(
         ymin = med_smooth - sd_smooth,
@@ -793,7 +793,7 @@ label_config <- data.frame(
     ) +
     theme_minimal()
   
-  ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelength < 1340,], aes(x = wavelength)) +
+  ggplot(med_selected_smooth[med_selected_smooth$wavelength >700 & med_selected_smooth$wavelength < 1340,], aes(x = wavelength)) +
     geom_ribbon(
       aes(
         ymin = med_smooth - sd_smooth,
@@ -835,7 +835,7 @@ label_config <- data.frame(
     ) +
     theme_minimal()
   
-  ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavelength < 1790,], aes(x = wavelength)) +
+  ggplot(med_selected_smooth[med_selected_smooth$wavelength >1420 & med_selected_smooth$wavelength < 1790,], aes(x = wavelength)) +
     geom_ribbon(
       aes(
         ymin = med_smooth - sd_smooth,
@@ -876,6 +876,81 @@ label_config <- data.frame(
       fill = "Type"  
     ) +
     theme_minimal()
+  
+# Bhattacharyya ################################################################
+
+plot_data <- data.frame(
+  group = character(0),
+  distance = numeric(0),
+  dataset = character(0),  # "CR" or "MD"
+  type = character(0)       # "Within" or "Between"
+)
+
+#Within
+plot_data <- rbind(
+  plot_data,
+  data.frame(
+    group = rep("CR0", length(bhatt_cr0_within$all_distances)),
+    distance = bhatt_cr0_within$all_distances,
+    dataset = rep("CR", length(bhatt_cr0_within$all_distances)),
+    type = rep("Within", length(bhatt_cr0_within$all_distances))
+  ),
+  data.frame(
+    group = rep("CR3", length(bhatt_cr3_within$all_distances)),
+    distance = bhatt_cr3_within$all_distances,
+    dataset = rep("CR", length(bhatt_cr3_within$all_distances)),
+    type = rep("Within", length(bhatt_cr3_within$all_distances))
+  ),
+  data.frame(
+    group = rep("MD0", length(bhatt_md0_within$all_distances)),
+    distance = bhatt_md0_within$all_distances,
+    dataset = rep("MD", length(bhatt_md0_within$all_distances)),
+    type = rep("Within", length(bhatt_md0_within$all_distances))
+  ),
+  data.frame(
+    group = rep("MD1", length(bhatt_md1_within$all_distances)),
+    distance = bhatt_md1_within$all_distances,
+    dataset = rep("MD", length(bhatt_md1_within$all_distances)),
+    type = rep("Within", length(bhatt_md1_within$all_distances))
+  )
+)
+
+# Between
+plot_data <- rbind(
+  plot_data,
+  data.frame(
+    group = rep("CR0 vs CR3", length(bhatt_cr0_cr3_random$all_distances)),
+    distance = bhatt_cr0_cr3_random$all_distances,
+    dataset = rep("CR", length(bhatt_cr0_cr3_random$all_distances)),
+    type = rep("Between", length(bhatt_cr0_cr3_random$all_distances))
+  ),
+  data.frame(
+    group = rep("MD0 vs MD1", length(bhatt_md0_md1_random$all_distances)),
+    distance = bhatt_md0_md1_random$all_distances,
+    dataset = rep("MD", length(bhatt_md0_md1_random$all_distances)),
+    type = rep("Between", length(bhatt_md0_md1_random$all_distances))
+  )
+)
+
+ggplot(plot_data, aes(x = group, y = distance, fill = interaction(type, dataset))) +
+  geom_boxplot(outlier.shape = NA) +
+  scale_fill_manual(
+    values = c(
+      "Within.MD" = "#1f77b4",
+      "Between.MD" = "#ff7f0e",
+      "Between.CR" = "#fdae61", 
+      "Within.CR" = "#98c1d9"),
+    name = "Distance type"
+  ) +
+  labs(
+    title = "Bhattacharyya distances distribution",
+    x = "Groupe",
+    y = "Bhattacharyya distance"
+  ) +
+  theme(
+    legend.position = "top",
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+  )
   
 # LDA ##########################################################################
 # Crowns
