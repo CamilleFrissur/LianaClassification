@@ -79,11 +79,11 @@ ggplot(df_all, aes(x = label,
 ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   # scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
-  scale_color_manual(values = c("0"= "#662700", "1"="#CC5500","2"="#FF8E33","3"= "#FFCA99"),
+  scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
                      #scale_color_manual(values = c("0"= "#21421e", "1"="#568203","2"="#9acd32","3"= "#c5e384"),
                      
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "PCA of the HSI values of the drone photos dataset (Illu filter)",
+  labs(title= "PCA of the HSI values of the crowns dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns[2], 1), "%)"))+
   theme_minimal()
@@ -98,7 +98,7 @@ ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
 ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
-  labs(title= "PCA of the mean spectrum per polygon of the DP dataset (Illu filter)",
+  labs(title= "PCA of the mean spectrum per polygon of the crowns dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))+
   theme_minimal()
@@ -112,7 +112,7 @@ ggplot(pca_plot_blob, aes(x = x, y = y, color = Type)) +
     values = c("0" = "#ABABAB", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA of the HSI values of the MD dataset (Illu filter)",
+  labs(title= "PCA of the HSI values of the MD dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob[2], 1), "%)"))+
   theme_minimal()
@@ -131,7 +131,7 @@ ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
     values = c("0" = "#ABABAB", "1" = "#001312"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA of the mean spectrum per polygon of the MD dataset (Illu filter)",
+  labs(title= "PCA of the mean spectrum per polygon of the MD dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob_poly[2], 1), "%)"))+
   theme_minimal()
@@ -893,25 +893,25 @@ plot_data <- rbind(
     group = rep("CR0", length(bhatt_cr0_within$all_distances)),
     distance = bhatt_cr0_within$all_distances,
     dataset = rep("CR", length(bhatt_cr0_within$all_distances)),
-    type = rep("Within", length(bhatt_cr0_within$all_distances))
+    type = rep("Within_Class", length(bhatt_cr0_within$all_distances))
   ),
   data.frame(
     group = rep("CR3", length(bhatt_cr3_within$all_distances)),
     distance = bhatt_cr3_within$all_distances,
     dataset = rep("CR", length(bhatt_cr3_within$all_distances)),
-    type = rep("Within", length(bhatt_cr3_within$all_distances))
+    type = rep("Within_Class", length(bhatt_cr3_within$all_distances))
   ),
   data.frame(
     group = rep("MD0", length(bhatt_md0_within$all_distances)),
     distance = bhatt_md0_within$all_distances,
     dataset = rep("MD", length(bhatt_md0_within$all_distances)),
-    type = rep("Within", length(bhatt_md0_within$all_distances))
+    type = rep("Within_Class", length(bhatt_md0_within$all_distances))
   ),
   data.frame(
     group = rep("MD1", length(bhatt_md1_within$all_distances)),
     distance = bhatt_md1_within$all_distances,
     dataset = rep("MD", length(bhatt_md1_within$all_distances)),
-    type = rep("Within", length(bhatt_md1_within$all_distances))
+    type = rep("Within_Class", length(bhatt_md1_within$all_distances))
   )
 )
 
@@ -922,13 +922,13 @@ plot_data <- rbind(
     group = rep("CR0 vs CR3", length(bhatt_cr0_cr3_random$all_distances)),
     distance = bhatt_cr0_cr3_random$all_distances,
     dataset = rep("CR", length(bhatt_cr0_cr3_random$all_distances)),
-    type = rep("Between", length(bhatt_cr0_cr3_random$all_distances))
+    type = rep("Between_Class", length(bhatt_cr0_cr3_random$all_distances))
   ),
   data.frame(
     group = rep("MD0 vs MD1", length(bhatt_md0_md1_random$all_distances)),
     distance = bhatt_md0_md1_random$all_distances,
     dataset = rep("MD", length(bhatt_md0_md1_random$all_distances)),
-    type = rep("Between", length(bhatt_md0_md1_random$all_distances))
+    type = rep("Between_Class", length(bhatt_md0_md1_random$all_distances))
   )
 )
 
@@ -936,15 +936,15 @@ ggplot(plot_data, aes(x = group, y = distance, fill = interaction(type, dataset)
   geom_boxplot(outlier.shape = NA) +
   scale_fill_manual(
     values = c(
-      "Within.MD" = "#1f77b4",
-      "Between.MD" = "#ff7f0e",
-      "Between.CR" = "#fdae61", 
-      "Within.CR" = "#98c1d9"),
+      "Within_Class.MD" = "#1f77b4",
+      "Between_Class.MD" = "#ff7f0e",
+      "Between_Class.CR" = "#fdae61", 
+      "Within_Class.CR" = "#98c1d9"),
     name = "Distance type"
   ) +
   labs(
-    title = "Bhattacharyya distances distribution",
-    x = "Groupe",
+    title = "Bhattacharyya distances distribution on Feature Space data",
+    x = "Group (Dataset and distance type)",
     y = "Bhattacharyya distance"
   ) +
   theme(
@@ -952,6 +952,45 @@ ggplot(plot_data, aes(x = group, y = distance, fill = interaction(type, dataset)
     axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
   )
   
+#Mahalanobis####################################################################
+# Initialisation
+plot_maha_data <- data.frame(
+  group = character(0),
+  distance = numeric(0),
+  dataset = character(0),
+  type = character(0)
+)
+
+# Within
+plot_maha_data <- add_to_plot(plot_maha_data, "CR0", maha_cr0_within, "CR", "Within_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "CR3", maha_cr3_within, "CR", "Within_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "MD0", maha_md0_within, "MD", "Within_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "MD1", maha_md1_within, "MD", "Within_Class")
+
+# Between
+plot_maha_data <- add_to_plot(plot_maha_data, "CR0 vs CR3", maha_cr0_cr3_random, "CR", "Between_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "MD0 vs MD1", maha_md0_md1_random, "MD", "Between_Class")
+
+ggplot(plot_maha_data, aes(x = group, y = distance, fill = interaction(type, dataset))) +
+  geom_boxplot(outlier.shape = NA) +
+  scale_fill_manual(
+    values = c(
+      "Within_Class.MD" = "#1f77b4",
+      "Between_Class.MD" = "#ff7f0e",
+      "Between_Class.CR" = "#fdae61", 
+      "Within_Class.CR" = "#98c1d9"),
+    name = "Distance type"
+  ) +
+  labs(
+    title = "Mahalanobis distances distribution on Feature Space data",
+    x = "Group (Dataset and distance type)",
+    y = "Mahalanobis distance"
+  ) +
+  theme(
+    legend.position = "top",
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+  )
+
 # LDA ##########################################################################
 # Crowns
   
