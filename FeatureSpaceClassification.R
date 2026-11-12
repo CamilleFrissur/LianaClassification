@@ -984,13 +984,15 @@ majority_per_poly$correct_majority <- majority_per_poly$majority_pred ==
 mean_accuracy_majority_poly <- mean(majority_per_poly$correct_majority)
 cat("Accuracy majority per poly:",
     round(mean_accuracy_majority_poly, 3), "\n")
-accuracy_majority_by_fold <- aggregate(correct_majority ~ fold,
-                                       data = majority_per_poly, FUN = mean)
+accuracy_poly_by_fold <- aggregate(correct_majority ~ fold,
+                                   data = majority_per_poly, FUN = mean)
 cat("Accuracy majority by fold:",
-    paste(round(accuracy_majority_by_fold$correct_majority, 3), collapse = ", "), "\n\n")
+    paste(round(accuracy_poly_by_fold$correct_majority, 3), collapse = ", "), "\n\n")
 
 
-### F1 score graphs
+
+
+### F1 score 
 all_predictions <- do.call(rbind, lapply(cv_results, function(x) {
   data.frame(
     fold = rep(x$fold, nrow(x$test_data)),
@@ -999,8 +1001,6 @@ all_predictions <- do.call(rbind, lapply(cv_results, function(x) {
     pred = x$predictions$class
   )
 }))
-
-
 
 #F1 class predicted per patch (majority)
 cm_poly <- table(
@@ -1024,113 +1024,49 @@ cat("F1 macro majority per patch:",
     round(f1_macro_majority_poly, 3), "\n\n")
 
 
-### StratifiedGroupKFold trained on all labels ####
-
-#### CROWNS 
-set.seed(123)
-folds_crowns <- stratified_group_kfold(crowns_df_pure, "poly_id", "LianaOriginal", k = 5)  
-cv_results <- list()
-
-
-for (i in 1:length(folds_crowns)) {
-  test_indices <- folds_crowns[[i]]
-  train_indices <- setdiff(1:nrow(crowns_df_pure), test_indices)
-  
-  train_data <- crowns_df_pure[train_indices, ]
-  test_data  <- crowns_df_pure[test_indices, ]
-  
-  band_cols_cv <- sapply(train_data, is.numeric)
-  band_cols_cv <- band_cols_cv & names(train_data) != "poly_id"
-  
-  train_means <- colMeans(train_data[, band_cols_cv], na.rm = TRUE)
-  train_sds  <- apply(train_data[, band_cols_cv], 2, sd, na.rm = TRUE)
-  train_data[, band_cols_cv] <- scale(train_data[, band_cols_cv], center = train_means, scale = train_sds)
-  test_data[, band_cols_cv]  <- scale(test_data[, band_cols_cv], center = train_means, scale = train_sds)
-  
-  X_train_cv <- train_data[, band_cols_cv]
-  constant_cols_cv <- sapply(X_train_cv, function(x) length(unique(x)) == 1)
-  X_train_filtered_cv <- X_train_cv[, !constant_cols_cv, drop = FALSE]
-  
-  if (ncol(X_train_filtered_cv) > 1) {
-    cor_matrix_cv <- cor(X_train_filtered_cv, use = "complete.obs")
-    high_cor_cols_cv <- names(X_train_filtered_cv)[
-      sapply(1:ncol(X_train_filtered_cv), function(j) any(abs(cor_matrix_cv[j, ]) > 0.99 & cor_matrix_cv[j, ] != 1))
-    ]
-    X_train_filtered_cv <- X_train_filtered_cv[, !names(X_train_filtered_cv) %in% high_cor_cols_cv, drop = FALSE]
-  }
-  
-  X_test_cv <- test_data[, band_cols_cv]
-  X_test_filtered_cv <- X_test_cv[, names(X_test_cv) %in% names(X_train_filtered_cv), drop = FALSE]
-  
-  train_lda_cv <- data.frame(Liana = train_data$LianaOriginal, X_train_filtered_cv)  
-  n_classes <- length(levels(train_lda_cv$Liana))
-  model_cv <- lda(Liana ~ ., data = train_lda_cv, tol = 1e-8, prior = rep(1/n_classes, n_classes))
-  
-  test_lda_cv <- data.frame(Liana = test_data$LianaOriginal, X_test_filtered_cv)  
-  predictions_cv <- predict(model_cv, test_lda_cv)
-  
-  poly_predictions <- data.frame(
-    poly_id = test_data$poly_id,
-    pred_pixel = predictions_cv$class
+f1_poly_by_fold <- sapply(1:5, function(f) {
+  sub_f <- subset(majority_per_poly, fold == f)
+  cm_f <- table(
+    predicted = sub_f$majority_pred,
+    truth = factor(as.character(sub_f$LianaOriginal),
+                   levels = levels(all_cv_results$predicted))
   )
-  
-  poly_pred_modes <- aggregate(
-    pred_pixel ~ poly_id,
-    data = poly_predictions,
-    FUN = function(x) {
-      as.character(names(which.max(table(x)))) 
-    }
-  )
-  names(poly_pred_modes) <- c("poly_id", "pred_mode")
-  
-  poly_true_labels <- unique(test_data[c("poly_id", "LianaOriginal")])
-  
-  poly_results <- data.frame(
-    fold = i,
-    poly_id = poly_true_labels$poly_id,
-    true = poly_true_labels$LianaOriginal,
-    pred = poly_pred_modes$pred_mode[match(poly_true_labels$poly_id, poly_pred_modes$poly_id)]
-  )
-  
-  poly_accuracy <- mean(poly_results$pred == poly_results$true, na.rm = TRUE)
-  
-  pixel_accuracy <- mean(predictions_cv$class == test_data$LianaOriginal, na.rm = TRUE)
-  
-  cv_results[[i]] <- list(
-    fold = i,
-    poly_accuracy = poly_accuracy,
-    pixel_accuracy = pixel_accuracy,
-    poly_results = poly_results,
-    test_data = test_data,
-    predictions = predictions_cv
-  )
-}
+  f1_classes <- sapply(colnames(cm_f), function(cls) {
+    tp <- cm_f[cls, cls]
+    fp <- sum(cm_f[cls, ]) - tp
+    fn <- sum(cm_f[, cls]) - tp
+    p <- if (tp + fp > 0) tp / (tp + fp) else 0
+    r <- if (tp + fn > 0) tp / (tp + fn) else 0
+    if (p + r > 0) 2 * p * r / (p + r) else 0
+  })
+  mean(f1_classes)
+})
 
-cv_poly_accuracies <- sapply(cv_results, function(x) x$poly_accuracy)
-cv_pixel_accuracies <- sapply(cv_results, function(x) x$pixel_accuracy)
-
-cat("Pixel-level accuracies per fold:", paste(round(cv_pixel_accuracies, 3), collapse = ", "), "\n")
-cat("Mean pixel accuracy CV:", round(mean(cv_pixel_accuracies), 3), "\n\n")
-cat("Polygon-level accuracies per fold:", paste(round(cv_poly_accuracies, 3), collapse = ", "), "\n")
-cat("Mean polygon accuracy CV:", round(mean(cv_poly_accuracies), 3), "\n")
-
-# Pixel-level accuracies per fold: 0.282, 0.326, 0.273, 0.319, 0.368 
-# Mean pixel accuracy CV: 0.313 
-# Polygon-level accuracies per fold: 0.306, 0.449, 0.354, 0.404, 0.413 
-# Mean polygon accuracy CV: 0.385 
-
-# Boxplot illu #################################################################
-label_blob_illu <- rasterize(blob, illu, field = "Type")       # Labels MD
-combined_blob <- c(illu, label_blob_illu)
-names(combined_blob) <- c("illumination", "label")
-df_blob <- as.data.frame(combined_blob, na.rm = TRUE)
-df_blob$label <- factor(df_blob$label,levels = c(0, 1),labels = c("MD0", "MD1"))
-df_blob$type <- "MD"
-
-label_crowns_illu <- rasterize(crowns, illu, field = "LianaFullC")  # Labels DP
-combined_crowns <- c(illu, label_crowns_illu)
-names(combined_crowns) <- c("illumination", "label")
-df_crowns <- as.data.frame(combined_crowns, na.rm = TRUE)
-df_crowns$type <- "CR"
-
-df_all <- bind_rows(df_blob, df_crowns)
+# majority_per_poly$majority_pred <- factor(majority_per_poly$majority_pred,
+#                                           levels = levels(all_cv_results$predicted))
+# majority_per_poly$correct_majority <- as.character(majority_per_poly$majority_pred) ==
+#   as.character(majority_per_poly$LianaOriginal)
+# 
+# mean_accuracy_poly <- mean(majority_per_poly$correct_majority)  
+# accuracy_poly_by_fold <- aggregate(correct_majority ~ fold,
+#                                    data = majority_per_poly, FUN = mean)
+# accuracy_poly_by_fold 
+# 
+# mean_accuracy_poly <- mean(majority_per_poly$correct_majority)  
+# 
+# cm_poly <- table(
+#   predicted = as.character(majority_per_poly$majority_pred),
+#   truth     = as.character(majority_per_poly$LianaOriginal)
+# )
+# f1_by_class_poly <- sapply(colnames(cm_poly), function(cls) {
+#   tp <- if (cls %in% rownames(cm_poly)) cm_poly[cls, cls] else 0
+#   fp <- if (cls %in% rownames(cm_poly)) sum(cm_poly[cls, ]) - tp else 0
+#   fn <- if (cls %in% colnames(cm_poly)) sum(cm_poly[, cls]) - tp else 0
+#   p <- if (tp + fp > 0) tp / (tp + fp) else 0
+#   r <- if (tp + fn > 0) tp / (tp + fn) else 0
+#   if (p + r > 0) 2 * p * r / (p + r) else 0
+# })
+# f1_macro_poly <- mean(f1_by_class_poly)  
+# 
+# mean_accuracy_poly    
+# f1_macro_poly       
