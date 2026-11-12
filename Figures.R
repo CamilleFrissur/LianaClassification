@@ -91,8 +91,8 @@ ggplot(df_all, aes(x = label,
 
 ## CROWNS
 pca_plot_crowns_half <- pca_plot_crowns %>%
-  filter(LianaFullCrown %in% c(0, 3)) %>%
-  mutate(LianaFullCrown = droplevels(factor(LianaFullCrown)))
+  dplyr::filter(LianaFullCrown %in% c(0, 3)) %>%
+  dplyr::mutate(LianaFullCrown = droplevels(factor(LianaFullCrown)))
 pca_plot_crowns_half <- pca_plot_crowns_half %>%
   sample_frac(0.5)
 
@@ -103,7 +103,8 @@ ggplot(pca_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
                      #scale_color_manual(values = c("0"= "#21421e", "1"="#568203","2"="#9acd32","3"= "#c5e384"),
                      
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "pca of the HSI values of the crowns dataset (NIR filter)",
+  labs(title= "
+       PCA on CR feature space data per pixel (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns[2], 1), "%)"))+
   theme_minimal()
@@ -118,14 +119,14 @@ ggplot(pca_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
 ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("CR0"= "#FFEE99", "CR1"="#FFCC65","CR2"="#FF9932","CR3"= "#FF6619"))+
-  labs(title= "pca of the mean spectrum per polygon of the crowns dataset (NIR filter)",
+  labs(title= "PCA on CR feature space data per crown (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))+
   theme_minimal()
 
 # BLOB
 pca_plot_blob_half <- pca_plot_blob %>%
-  sample_frac(0.5)
+  sample_frac(0.33)
 
 ggplot(pca_plot_blob_half, aes(x = x, y = y, color = Type)) +
   geom_point()+
@@ -134,10 +135,10 @@ ggplot(pca_plot_blob_half, aes(x = x, y = y, color = Type)) +
     values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "pca of the HSI values of the MD dataset (NIR filter)",
+  labs(title= "PCA on MD feature space data per pixel (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob[2], 1), "%)"))+
-  theme_minimal()
+  theme_minimal()+ ylim (-15,15)
 
 # # Only with illu filter
 # umap_plot_blob$illu <- illu_blob_valid
@@ -146,17 +147,17 @@ ggplot(pca_plot_blob_half, aes(x = x, y = y, color = Type)) +
 #   scale_color_viridis_c(name = "Illumination") +
 #   labs(title = "umap of the HSI values of the MD dataset colored by illumination")
 
-ggplot(umap_plot_blob_poly, aes(x = x, y = y, color = Type)) +
+ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() +
   scale_color_manual(
     name = "Presence of liana",
     values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "umap of the mean spectrum per polygon of the MD dataset (NIR filter)",
+  labs(title= "PCA on MD feature space data per patch (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob_poly[2], 1), "%)"))+
-  theme_minimal()
+  theme_minimal() + ylim (-5,10)
 
 # tSNE ################################################################
 
@@ -215,8 +216,8 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
 
 ## CROWNS
 umap_plot_crowns_half <- umap_plot_crowns %>%
-  filter(LianaFullCrown %in% c(0, 3)) %>%
-  mutate(LianaFullCrown = droplevels(factor(LianaFullCrown)))
+  dplyr::filter(LianaFullCrown %in% c(0, 3)) %>%
+  dplyr::mutate(LianaFullCrown = droplevels(factor(LianaFullCrown)))
 umap_plot_crowns_half <- umap_plot_crowns_half %>%
   sample_frac(0.5)
 
@@ -225,7 +226,7 @@ ggplot(umap_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
   scale_color_manual(values = c("0"= "#FFCC65", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "UMAP of the HSI values of the crowns dataset (NIR filter)" )+
+  labs(title= "UMAP on CR feature space data per pixel (NIR filter)" )+
   theme_minimal()
 
 # Only with illu filter
@@ -238,12 +239,12 @@ ggplot(umap_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("CR0"= "#FFEE99", "CR1"="#FFCC65","CR2"="#FF9932","CR3"= "#FF6619"))+
-  labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (Illu filter)" )+
+  labs(title= "UMAP on CR feature space data per crown (NIR filter)" )+
   theme_minimal()
 
 ## BLOB
 umap_plot_blob_half <- umap_plot_blob %>%
-  sample_frac(0.5)
+  sample_frac(0.33)
 
 
 ggplot(umap_plot_blob_half, aes(x = x, y = y, color = Type)) +
@@ -253,7 +254,7 @@ ggplot(umap_plot_blob_half, aes(x = x, y = y, color = Type)) +
     values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the HSI values of the MD dataset (Illu filter)" )+
+  labs(title= "UMAP on MD feature space data per pixel (NIR filter)" )+
   theme_minimal()
 
 # Only with illu filter
@@ -270,13 +271,13 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
     values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (Illu filter)" )+
+  labs(title= "UMAP on MD feature space data per patch (NIR filter)" )+
   theme_minimal()
 
 # Mean spectrum ################################################################
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
-  display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "MD0 (No Liana MD)", "MD1 ( Liana MD)"),
+  display_name = c("CR0 (No Liana)", "CR1 (DP)", "CR2", "CR3 (Liana)", "MD0 (No Liana)", "MD1 ( Liana)"),
   color = c("#FFEE99", "#FFCC65", "#FF9932","#FF6619", "#99EDFF", "#1965FF"),
   # color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#99EDFF", "#1965FF"),
   # color = c("#21421e", "#568203", "#9acd32","#c5e384", "#99EDFF", "#1965FF"),
@@ -320,7 +321,7 @@ ggplot(selected_smooth, aes(x = wavelength)) +
   labs(
     x = "Wavelength (nm)",
     y = "Mean normalized reflectance",
-    title = "Spectrum by dataset group (NIR filter)",
+    title = "Mean spectrum by dataset class with discrepancy (NIR filter)",
     color = "Type",
     linetype = "Type",
     fill = "Type"  
@@ -328,7 +329,7 @@ ggplot(selected_smooth, aes(x = wavelength)) +
   theme_minimal()
 
 # Visible region plot
-ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) +
+visible <- ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) +
   geom_ribbon(
     aes(
       ymin = mean_smooth - sd_smooth,
@@ -363,7 +364,7 @@ ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) 
   labs(
     x = "Wavelength (nm)",
     y = "Mean normalized reflectance",
-    title = "Spectrum by dataset group in the visible region (NIR filter)",
+    title = "b. Visible region",
     color = "Type",
     linetype = "Type",
     fill = "Type"  
@@ -372,7 +373,7 @@ ggplot(selected_smooth[selected_smooth$wavelength < 690,], aes(x = wavelength)) 
 
 
 # NIR Region plot
-ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelength < 1340,], aes(x = wavelength)) +
+NIR<- ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelength < 1340,], aes(x = wavelength)) +
   geom_ribbon(
     aes(
       ymin = mean_smooth - sd_smooth,
@@ -407,7 +408,7 @@ ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelen
   labs(
     x = "Wavelength (nm)",
     y = "Mean normalized reflectance",
-    title = "Spectrum by dataset group in the NIR region (NIR filter)",
+    title = "Mean spectrum with discrepancy in the NIR region",
     color = "Type",
     linetype = "Type",
     fill = "Type"  
@@ -416,7 +417,7 @@ ggplot(selected_smooth[selected_smooth$wavelength >700 & selected_smooth$wavelen
 
 #SWIR1
 
-ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavelength < 1790,], aes(x = wavelength)) +
+SWIR1 <- ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavelength < 1790,], aes(x = wavelength)) +
   geom_ribbon(
     aes(
       ymin = mean_smooth - sd_smooth,
@@ -451,18 +452,20 @@ ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavele
   labs(
     x = "Wavelength (nm)",
     y = "Mean normalized reflectance",
-    title = "Spectrum by dataset group in the SWIR 1 region (NIR filter)",
+    title = "d. SWIR 1 region",
     color = "Type",
     linetype = "Type",
     fill = "Type"  
   ) +
   theme_minimal()
 
+grid.arrange (visible + theme(legend.position = "none"), NIR + theme(legend.position = "none"), SWIR1 + theme(legend.position = "none"), ncol=3)
+
 ## Difference in mean spectrum  ####
 diff_label_config <- data.frame(
   group = c("CR3 - CR0", "MD1 - MD0"),
   display_name = c("CR3 - CR0", "MD1 - MD0"),
-  color = c("#FFCC65", "#1965FF"), 
+  color = c("#FF6619", "#1965FF"), 
   linetype = c("solid", "solid")
 )
 
@@ -502,7 +505,7 @@ ggplot(diff_spectra_smooth, aes(x = wavelength)) +
   labs(
     x = "Wavelength (nm)",
     y = "Difference in normalized reflectance",
-    title = "Spectrum difference by group (CR3-CR0 and MD1-MD0, NIR filter)",
+    title = "Spectrum difference by dataset (NIR filter)",
     color = "Difference (Liana - No liana)",
     linetype = "Difference (Liana - No liana)",
     fill = "Difference (Liana - No liana)"
@@ -932,10 +935,10 @@ ggplot(plot_bhatt_data, aes(x = group, y = distance, fill = interaction(type, da
   geom_boxplot(outlier.shape = NA) +
   scale_fill_manual(
     values = c(
-      "Within_Class.MD" = "#1f77b4",
-      "Between_Class.MD" = "#ff7f0e",
-      "Between_Class.CR" = "#fdae61", 
-      "Within_Class.CR" = "#98c1d9"),
+      "Within_Class.MD" = "#1965FF",
+      "Between_Class.MD" = "#FF6619",
+      "Between_Class.CR" = "#FFCC65", 
+      "Within_Class.CR" = "#99EDFF"),
     name = "Distance type"
   ) +
   labs(
@@ -951,36 +954,67 @@ ggplot(plot_bhatt_data, aes(x = group, y = distance, fill = interaction(type, da
 
 
 #Mahalanobis####################################################################
-# Initialisation
+# # Initialisation
+# plot_maha_data <- data.frame(
+#   group = character(0),
+#   distance = numeric(0),
+#   dataset = character(0),
+#   type = character(0)
+# )
+# 
+# # Within
+# plot_maha_data <- add_to_plot(plot_maha_data, "CR0", maha_cr0_within, "CR", "Within_Class")
+# plot_maha_data <- add_to_plot(plot_maha_data, "CR3", maha_cr3_within, "CR", "Within_Class")
+# plot_maha_data <- add_to_plot(plot_maha_data, "MD0", maha_md0_within, "MD", "Within_Class")
+# plot_maha_data <- add_to_plot(plot_maha_data, "MD1", maha_md1_within, "MD", "Within_Class")
+# 
+# # Between
+# plot_maha_data <- add_to_plot(plot_maha_data, "CR0 vs CR3", maha_cr0_cr3_random, "CR", "Between_Class")
+# plot_maha_data <- add_to_plot(plot_maha_data, "MD0 vs MD1", maha_md0_md1_random, "MD", "Between_Class")
+
+# add_to_plot <- function(plot_df, group, res_component, dataset, type) {
+#   if (is.null(res_component)) return(plot_df)   # comparaison échouée -> ignorée
+#   rbind(plot_df, data.frame(
+#     group    = group,
+#     distance = res_component$all_distances,
+#     dataset  = dataset,
+#     type     = type
+#   ))
+# }
+
 plot_maha_data <- data.frame(
-  group = character(0),
+  group    = character(0),
   distance = numeric(0),
-  dataset = character(0),
-  type = character(0)
+  dataset  = character(0),
+  type     = character(0)
 )
 
 # Within
-plot_maha_data <- add_to_plot(plot_maha_data, "CR0", maha_cr0_within, "CR", "Within_Class")
-plot_maha_data <- add_to_plot(plot_maha_data, "CR3", maha_cr3_within, "CR", "Within_Class")
-plot_maha_data <- add_to_plot(plot_maha_data, "MD0", maha_md0_within, "MD", "Within_Class")
-plot_maha_data <- add_to_plot(plot_maha_data, "MD1", maha_md1_within, "MD", "Within_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "CR0", res_cr03$within_class1, "CR", "Within_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "CR3", res_cr03$within_class2, "CR", "Within_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "MD0", res_md01$within_class1, "MD", "Within_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "MD1", res_md01$within_class2, "MD", "Within_Class")
 
 # Between
-plot_maha_data <- add_to_plot(plot_maha_data, "CR0 vs CR3", maha_cr0_cr3_random, "CR", "Between_Class")
-plot_maha_data <- add_to_plot(plot_maha_data, "MD0 vs MD1", maha_md0_md1_random, "MD", "Between_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "CR0 vs CR3", res_cr03$between, "CR", "Between_Class")
+plot_maha_data <- add_to_plot(plot_maha_data, "MD0 vs MD1", res_md01$between, "MD", "Between_Class")
+
+plot_maha_data$group <- factor(plot_maha_data$group,
+                               levels = c("CR0", "CR0 vs CR3","CR3", 
+                                          "MD0",  "MD0 vs MD1","MD1"))
 
 ggplot(plot_maha_data, aes(x = group, y = distance, fill = interaction(type, dataset))) +
   geom_boxplot(outlier.shape = NA) +
   scale_fill_manual(
     values = c(
-      "Within_Class.MD" = "#1f77b4",
-      "Between_Class.MD" = "#ff7f0e",
-      "Between_Class.CR" = "#fdae61",
-      "Within_Class.CR" = "#98c1d9"),
+      "Within_Class.MD" = "#1965FF",
+      "Between_Class.MD" = "#99EDFF",
+      "Between_Class.CR" = "#FFCC65",
+      "Within_Class.CR" = "#FF6619"),
     name = "Distance type"
   ) +
   labs(
-    title = "Mahalanobis distances distribution on HSI raw data",
+    title = "Mahalanobis distances distribution on feature space data",
     x = "Group (Dataset and distance type)",
     y = "Mahalanobis distance"
   ) +
@@ -1018,8 +1052,8 @@ p4 <- ggplot() +
     y = "Liana predicted per crown (%)",
     title = "a. Mean liana prediction on HSI raw data (CR)",
     caption = paste0(
-      "Mean accuracy  = ", round(mean_poly_accuracy, 3), " | ",
-      "Mean F1-score  = ", round(mean_poly_f1, 3)
+      "Mean accuracy (crown) = ", round(mean_poly_accuracy, 3), " | ",
+      "Mean F1-score (crown) = ", round(mean_poly_f1, 3)
     ),
     shape = "Fold", fill = "Fold"
   ) +
@@ -1060,8 +1094,8 @@ p4_fold_plots <- lapply(1:5, function(current_fold) {
       y = "Liana predicted per crown (%)",
       title = paste("Testing on fold", current_fold),
       caption = paste0(
-        "Fold mean accuracy = ", round(fold_accuracy_poly, 3), " | ",
-        "Fold F1-score = ", round(fold_f1_poly, 3)
+        "Fold mean accuracy (crown) = ", round(fold_accuracy_poly, 3), " | ",
+        "Fold F1-score (crown) = ", round(fold_f1_poly, 3)
       )
     ) +
     theme(legend.position = "none") +
@@ -1102,8 +1136,8 @@ p4_blob <- ggplot() +
     x = "Liana class in manual delineation (MD)",
     y = "Liana predicted per patch (%)",
     title = "b. Mean liana prediction on HSI raw data (MD)",
-    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel * 100, 1), "% | ",
-                     "Mean F1-score = ", round(mean(cv_f1_macro, na.rm = TRUE), 3)),
+    caption = paste0("Mean accuracy (patch) = ", round(mean_accuracy_poly), " | ",
+                     "Mean F1-score (patch) = ", round(f1_macro_poly, 3)),
     shape = "Fold", 
     fill = "Fold"    
   )+
@@ -1120,8 +1154,9 @@ accuracy_by_fold <- aggregate(
 
 p4_fold_plots_blob <- lapply(1:5, function(current_fold) {
   fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
-  fold_accuracy <- accuracy_by_fold$correct[accuracy_by_fold$fold == current_fold]
-  fold_f1 <- cv_f1_macro[current_fold] 
+  fold_accuracy_poly <- accuracy_poly_by_fold$correct_majority[
+    accuracy_poly_by_fold$fold == current_fold]
+  fold_f1_poly <- f1_poly_by_fold[current_fold]
   
   ggplot() +
     geom_boxplot(
@@ -1137,21 +1172,21 @@ p4_fold_plots_blob <- lapply(1:5, function(current_fold) {
       width = 0.15,
       alpha = 0.7,
       size = 2.5,
-      color = "black", 
+      color = "black",
       stroke = 0.3
     ) +
-    scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +  
-    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +  
-    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +  
+    scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +
+    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +
+    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
     scale_x_discrete(labels = c("0" = "MD0", "1" = "MD1")) +
     labs(
       x = "Liana class in manual delineation (MD)",
       y = "Liana predicted per patch (%)",
       title = paste("Testing on fold", current_fold),
-      caption = paste0("Fold mean accuracy = ", round(fold_accuracy * 100, 1), "% | ",
-                       "Fold F1-score = ", round(fold_f1, 3))
+      caption = paste0("Fold accuracy (atch) = ", round(fold_accuracy_poly) "| ",
+                       "Fold F1-score (atch) = ", round(fold_f1_poly, 3))
     ) +
-    theme(legend.position = "none")+
+    theme(legend.position = "none") +
     theme_minimal()
 })
 

@@ -532,156 +532,297 @@ add_to_plot <- function(plot_data, group_name, result, dataset, type) {
 }
 
 # Mahalanobis ####
-maha_dist <- function(mu1, mu2, sigma1, sigma2) {
-  sigma_pooled <- (sigma1 + sigma2) / 2
+
+# maha_dist <- function(mu1, mu2, sigma1, sigma2) {
+#   sigma_pooled <- (sigma1 + sigma2) / 2
+#   delta <- mu1 - mu2
+#   dist <- sqrt(t(delta) %*% solve(sigma_pooled) %*% delta)
+#   return(dist)
+# }
+# 
+# maha_between <- function(df, label_col, class1, class2, epsilon = 1e-10) { 
+#   exclude_cols <- c("poly_id", "Liana", "LianaOriginal", "Type")
+#   numeric_cols <- sapply(df, is.numeric)
+#   numeric_cols[names(numeric_cols) %in% exclude_cols] <- FALSE
+#   
+#   data <- as.matrix(df[, numeric_cols, drop = FALSE])
+#   labels <- df[[label_col]]
+#   
+#   d1 <- data[labels == class1, ]
+#   d2 <- data[labels == class2, ]
+#   
+#   var_d1 <- apply(d1, 2, var)
+#   var_d2 <- apply(d2, 2, var)
+#   good_bands <- (var_d1 > 1e-6) & (var_d2 > 1e-6)
+#   d1 <- d1[, good_bands, drop = FALSE]
+#   d2 <- d2[, good_bands, drop = FALSE]
+#   
+#   if (ncol(d1) == 0) return(NA)
+#   
+#   mu1 <- colMeans(d1)
+#   mu2 <- colMeans(d2)
+#   sigma1 <- regularize_cov(cov(d1), epsilon) 
+#   sigma2 <- regularize_cov(cov(d2), epsilon)  
+#   
+#   dist_raw <- tryCatch(maha_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
+#   if (is.na(dist_raw)) return(NA)
+#   
+#   list(dist = dist_raw, coeff = exp(-dist_raw), n1 = nrow(d1), n2 = nrow(d2), p = ncol(d1))
+# }
+# 
+# maha_between_random <- function(df, label_col, class1, class2,
+#                                 n_repeats = 100, seed = 123, epsilon = 1e-10) { 
+#   df_filtered <- df[df[[label_col]] %in% c(class1, class2), ]
+#   
+#   exclude_cols <- c("poly_id", "Liana", "LianaOriginal", "Type")
+#   numeric_cols <- sapply(df_filtered, is.numeric)
+#   numeric_cols[names(numeric_cols) %in% exclude_cols] <- FALSE
+#   
+#   data <- as.matrix(df_filtered[, numeric_cols, drop = FALSE])
+#   labels <- df_filtered[[label_col]]
+#   
+#   idx_class1 <- which(labels == class1)
+#   idx_class2 <- which(labels == class2)
+#   
+#   distances <- numeric(n_repeats)
+#   set.seed(seed)
+#   for (i in 1:n_repeats) {
+#     sample_idx1 <- sample(idx_class1, size = floor(length(idx_class1) * 0.5), replace = FALSE)
+#     sample_idx2 <- sample(idx_class2, size = floor(length(idx_class2) * 0.5), replace = FALSE)
+#     
+#     d1 <- data[sample_idx1, ]
+#     d2 <- data[sample_idx2, ]
+#     
+#     var_d1 <- apply(d1, 2, var)
+#     var_d2 <- apply(d2, 2, var)
+#     good_bands <- (var_d1 > 1e-6) & (var_d2 > 1e-6)
+#     d1 <- d1[, good_bands, drop = FALSE]
+#     d2 <- d2[, good_bands, drop = FALSE]
+#     
+#     if (ncol(d1) == 0) {
+#       distances[i] <- NA
+#       next
+#     }
+#     
+#     mu1 <- colMeans(d1)
+#     mu2 <- colMeans(d2)
+#     sigma1 <- regularize_cov(cov(d1), epsilon)  
+#     sigma2 <- regularize_cov(cov(d2), epsilon) 
+#     
+#     distances[i] <- tryCatch(maha_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
+#   }
+#   
+#   valid_dists <- distances[!is.na(distances)]
+#   if (length(valid_dists) == 0) return(NA)
+#   
+#   list(
+#     mean_dist = mean(valid_dists),
+#     sd_dist = sd(valid_dists),
+#     min_dist = min(valid_dists),
+#     max_dist = max(valid_dists),
+#     n_repeats = n_repeats,
+#     n_valid = length(valid_dists),
+#     all_distances = distances
+#   )
+# }
+# 
+# 
+# maha_within_random <- function(df, poly_id_col, label_col, target_class,
+#                                n_repeats = 100, seed = 123, epsilon = 1e-10) { 
+#   df_class <- df[df[[label_col]] == target_class & !is.na(df[[poly_id_col]]) & df[[poly_id_col]] != 0, ]
+#   unique_polys <- unique(df_class[[poly_id_col]])
+#   
+#   if (length(unique_polys) < 2) {
+#     warning(paste("Less than two poly per class", target_class))
+#     return(NA)
+#   }
+#   
+#   exclude_cols <- c(poly_id_col, label_col, "LianaOriginal", "Type")
+#   numeric_cols <- sapply(df_class, is.numeric)
+#   numeric_cols[names(numeric_cols) %in% exclude_cols] <- FALSE
+#   all_data <- as.matrix(df_class[, numeric_cols, drop = FALSE])
+#   
+#   distances <- numeric(n_repeats)
+#   set.seed(seed)
+#   for (i in 1:n_repeats) {
+#     shuffled_polys <- sample(unique_polys)
+#     split_idx <- floor(length(shuffled_polys) / 2)
+#     group1_polys <- shuffled_polys[1:split_idx]
+#     group2_polys <- shuffled_polys[(split_idx + 1):length(shuffled_polys)]
+#     
+#     data1 <- all_data[df_class[[poly_id_col]] %in% group1_polys, , drop = FALSE]
+#     data2 <- all_data[df_class[[poly_id_col]] %in% group2_polys, , drop = FALSE]
+#     
+#     var1 <- apply(data1, 2, var)
+#     var2 <- apply(data2, 2, var)
+#     good_bands <- (var1 > 1e-6) & (var2 > 1e-6)
+#     data1 <- data1[, good_bands, drop = FALSE]
+#     data2 <- data2[, good_bands, drop = FALSE]
+#     
+#     if (ncol(data1) == 0 || nrow(data1) < 2 || nrow(data2) < 2) {
+#       distances[i] <- NA
+#       next
+#     }
+#     
+#     mu1 <- colMeans(data1)
+#     mu2 <- colMeans(data2)
+#     sigma1 <- regularize_cov(cov(data1), epsilon) 
+#     sigma2 <- regularize_cov(cov(data2), epsilon)  
+#     
+#     distances[i] <- tryCatch(maha_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
+#   }
+#   
+#   valid_dists <- distances[!is.na(distances)]
+#   if (length(valid_dists) == 0) return(NA)
+#   
+#   list(
+#     mean_dist = mean(valid_dists),
+#     sd_dist = sd(valid_dists),
+#     min_dist = min(valid_dists),
+#     max_dist = max(valid_dists),
+#     n_repeats = n_repeats,
+#     n_valid = length(valid_dists),
+#     all_distances = distances
+#   )
+# }
+
+maha_sq_dist <- function(mu1, mu2, sigma_inv) {
   delta <- mu1 - mu2
-  dist <- sqrt(t(delta) %*% solve(sigma_pooled) %*% delta)
-  return(dist)
+  as.numeric(t(delta) %*% sigma_inv %*% delta)
 }
 
-maha_between <- function(df, label_col, class1, class2, epsilon = 1e-10) { 
-  exclude_cols <- c("poly_id", "Liana", "LianaOriginal", "Type")
+spectral_matrix <- function(df,
+                            exclude_cols = c("poly_id", "Liana",
+                                             "LianaOriginal", "Type")) {
   numeric_cols <- sapply(df, is.numeric)
   numeric_cols[names(numeric_cols) %in% exclude_cols] <- FALSE
-  
-  data <- as.matrix(df[, numeric_cols, drop = FALSE])
-  labels <- df[[label_col]]
-  
-  d1 <- data[labels == class1, ]
-  d2 <- data[labels == class2, ]
-  
-  var_d1 <- apply(d1, 2, var)
-  var_d2 <- apply(d2, 2, var)
-  good_bands <- (var_d1 > 1e-6) & (var_d2 > 1e-6)
-  d1 <- d1[, good_bands, drop = FALSE]
-  d2 <- d2[, good_bands, drop = FALSE]
-  
-  if (ncol(d1) == 0) return(NA)
-  
-  mu1 <- colMeans(d1)
-  mu2 <- colMeans(d2)
-  sigma1 <- regularize_cov(cov(d1), epsilon) 
-  sigma2 <- regularize_cov(cov(d2), epsilon)  
-  
-  dist_raw <- tryCatch(maha_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
-  if (is.na(dist_raw)) return(NA)
-  
-  list(dist = dist_raw, coeff = exp(-dist_raw), n1 = nrow(d1), n2 = nrow(d2), p = ncol(d1))
+  X <- as.matrix(df[, numeric_cols, drop = FALSE])
+  v <- apply(X, 2, var)
+  X[, v > 1e-6, drop = FALSE]
 }
 
-maha_between_random <- function(df, label_col, class1, class2,
-                                n_repeats = 100, seed = 123, epsilon = 1e-10) { 
-  df_filtered <- df[df[[label_col]] %in% c(class1, class2), ]
+# Common spectral space (ACP + global Sigma)
+build_global_space <- function(df,
+                               use_pca = TRUE,
+                               n_pcs = NULL,
+                               var_threshold = 0.99,
+                               epsilon = 1e-6) {
+  X <- spectral_matrix(df)
+  if (ncol(X) == 0) stop("Aucune bande variable détectée.")
   
-  exclude_cols <- c("poly_id", "Liana", "LianaOriginal", "Type")
-  numeric_cols <- sapply(df_filtered, is.numeric)
-  numeric_cols[names(numeric_cols) %in% exclude_cols] <- FALSE
-  
-  data <- as.matrix(df_filtered[, numeric_cols, drop = FALSE])
-  labels <- df_filtered[[label_col]]
-  
-  idx_class1 <- which(labels == class1)
-  idx_class2 <- which(labels == class2)
-  
-  distances <- numeric(n_repeats)
-  set.seed(seed)
-  for (i in 1:n_repeats) {
-    sample_idx1 <- sample(idx_class1, size = floor(length(idx_class1) * 0.5), replace = FALSE)
-    sample_idx2 <- sample(idx_class2, size = floor(length(idx_class2) * 0.5), replace = FALSE)
-    
-    d1 <- data[sample_idx1, ]
-    d2 <- data[sample_idx2, ]
-    
-    var_d1 <- apply(d1, 2, var)
-    var_d2 <- apply(d2, 2, var)
-    good_bands <- (var_d1 > 1e-6) & (var_d2 > 1e-6)
-    d1 <- d1[, good_bands, drop = FALSE]
-    d2 <- d2[, good_bands, drop = FALSE]
-    
-    if (ncol(d1) == 0) {
-      distances[i] <- NA
-      next
+  if (use_pca) {
+    pca <- prcomp(X, center = TRUE, scale. = FALSE)
+    if (is.null(n_pcs)) {
+      cum_var <- cumsum(pca$sdev^2) / sum(pca$sdev^2)
+      n_pcs <- max(2, which(cum_var >= var_threshold)[1])
     }
-    
-    mu1 <- colMeans(d1)
-    mu2 <- colMeans(d2)
-    sigma1 <- regularize_cov(cov(d1), epsilon)  
-    sigma2 <- regularize_cov(cov(d2), epsilon) 
-    
-    distances[i] <- tryCatch(maha_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
+    n_pcs <- min(n_pcs, ncol(X), nrow(X) - 1)
+    scores <- pca$x[, 1:n_pcs, drop = FALSE]
+  } else {
+    pca    <- NULL
+    scores <- X
   }
   
-  valid_dists <- distances[!is.na(distances)]
-  if (length(valid_dists) == 0) return(NA)
-  
+  Sigma     <- regularize_cov(cov(scores), epsilon)
+  list(pca = pca, scores = scores,
+       Sigma = Sigma, Sigma_inv = solve(Sigma),
+       n_pcs = ncol(scores))
+}
+
+make_split <- function(idx, pid, frac = 0.5) {
+  polys   <- unique(pid[idx])
+  polys_a <- sample(polys, floor(length(polys) * frac))
   list(
-    mean_dist = mean(valid_dists),
-    sd_dist = sd(valid_dists),
-    min_dist = min(valid_dists),
-    max_dist = max(valid_dists),
-    n_repeats = n_repeats,
-    n_valid = length(valid_dists),
-    all_distances = distances
+    A = idx[pid[idx] %in% polys_a],
+    B = idx[!pid[idx] %in% polys_a]
   )
 }
 
+centroid_of <- function(scores, idx) {
+  colMeans(scores[idx, , drop = FALSE])
+}
 
-maha_within_random <- function(df, poly_id_col, label_col, target_class,
-                               n_repeats = 100, seed = 123, epsilon = 1e-10) { 
-  df_class <- df[df[[label_col]] == target_class & !is.na(df[[poly_id_col]]) & df[[poly_id_col]] != 0, ]
-  unique_polys <- unique(df_class[[poly_id_col]])
+summarize_dists <- function(x) {
+  v <- x[!is.na(x)]
+  if (length(v) == 0) return(NULL)
+  list(mean_dist = mean(v), sd_dist = sd(v),
+       min_dist = min(v), max_dist = max(v),
+       n_valid = length(v), all_distances = x)
+}
+maha_global_comparisons <- function(df, label_col, class1, class2,
+                                    poly_id_col = "poly_id",
+                                    space = NULL,
+                                    n_repeats = 500,
+                                    frac = 0.5,
+                                    seed = 123) {
   
-  if (length(unique_polys) < 2) {
-    warning(paste("Less than two poly per class", target_class))
-    return(NA)
+  if (is.null(space)) {
+    space <- build_global_space(df)
   }
+  scores    <- space$scores
+  Sigma_inv <- space$Sigma_inv
   
-  exclude_cols <- c(poly_id_col, label_col, "LianaOriginal", "Type")
-  numeric_cols <- sapply(df_class, is.numeric)
-  numeric_cols[names(numeric_cols) %in% exclude_cols] <- FALSE
-  all_data <- as.matrix(df_class[, numeric_cols, drop = FALSE])
+  labels <- df[[label_col]]
+  pid    <- df[[poly_id_col]]
   
-  distances <- numeric(n_repeats)
+  idx1 <- which(labels == class1 & !is.na(pid) & pid != 0)
+  idx2 <- which(labels == class2 & !is.na(pid) & pid != 0)
+  if (length(idx1) < 4 || length(idx2) < 4)
+    stop("Trop peu d'individus (poly_id valides) dans une des classes.")
+  
   set.seed(seed)
-  for (i in 1:n_repeats) {
-    shuffled_polys <- sample(unique_polys)
-    split_idx <- floor(length(shuffled_polys) / 2)
-    group1_polys <- shuffled_polys[1:split_idx]
-    group2_polys <- shuffled_polys[(split_idx + 1):length(shuffled_polys)]
+  w1 <- w2 <- bt <- rep(NA_real_, n_repeats)
+  
+  for (i in seq_len(n_repeats)) {
+    s1 <- make_split(idx1, pid, frac)
+    s2 <- make_split(idx2, pid, frac)
     
-    data1 <- all_data[df_class[[poly_id_col]] %in% group1_polys, , drop = FALSE]
-    data2 <- all_data[df_class[[poly_id_col]] %in% group2_polys, , drop = FALSE]
-    
-    var1 <- apply(data1, 2, var)
-    var2 <- apply(data2, 2, var)
-    good_bands <- (var1 > 1e-6) & (var2 > 1e-6)
-    data1 <- data1[, good_bands, drop = FALSE]
-    data2 <- data2[, good_bands, drop = FALSE]
-    
-    if (ncol(data1) == 0 || nrow(data1) < 2 || nrow(data2) < 2) {
-      distances[i] <- NA
-      next
-    }
-    
-    mu1 <- colMeans(data1)
-    mu2 <- colMeans(data2)
-    sigma1 <- regularize_cov(cov(data1), epsilon) 
-    sigma2 <- regularize_cov(cov(data2), epsilon)  
-    
-    distances[i] <- tryCatch(maha_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
+    w1[i] <- tryCatch(sqrt(maha_sq_dist(centroid_of(scores, s1$A),
+                                        centroid_of(scores, s1$B), Sigma_inv)),
+                      error = function(e) NA)
+    w2[i] <- tryCatch(sqrt(maha_sq_dist(centroid_of(scores, s2$A),
+                                        centroid_of(scores, s2$B), Sigma_inv)),
+                      error = function(e) NA)
+    bt[i] <- tryCatch(sqrt(maha_sq_dist(centroid_of(scores, s1$A),
+                                        centroid_of(scores, s2$A), Sigma_inv)),
+                      error = function(e) NA)
   }
   
-  valid_dists <- distances[!is.na(distances)]
-  if (length(valid_dists) == 0) return(NA)
+  w1s <- summarize_dists(w1)
+  w2s <- summarize_dists(w2)
+  bts <- summarize_dists(bt)
   
-  list(
-    mean_dist = mean(valid_dists),
-    sd_dist = sd(valid_dists),
-    min_dist = min(valid_dists),
-    max_dist = max(valid_dists),
-    n_repeats = n_repeats,
-    n_valid = length(valid_dists),
-    all_distances = distances
+  sep_z <- NA_real_
+  if (!is.null(w1s) && !is.null(w2s) && !is.null(bts)) {
+    pooled_sd <- sqrt((w1s$sd_dist^2 + w2s$sd_dist^2) / 2)
+    if (pooled_sd > 0)
+      sep_z <- (bts$mean_dist - mean(c(w1s$mean_dist, w2s$mean_dist))) / pooled_sd
+  }
+  
+  list(within_class1 = w1s,
+       within_class2 = w2s,
+       between       = bts,
+       sep_z         = sep_z,
+       n_pcs         = space$n_pcs,
+       seed          = seed)
+}
+
+maha_results_to_df <- function(res, dataset, comparison) {
+  if (is.null(res$between)) {
+    return(data.frame(dataset = dataset, comparison = comparison,
+                      mean_dist = NA, sd_dist = NA,
+                      within1 = NA, within2 = NA,
+                      sep_z = NA, n_pcs = res$n_pcs))
+  }
+  data.frame(
+    dataset    = dataset,
+    comparison = comparison,
+    mean_dist  = res$between$mean_dist,
+    sd_dist    = res$between$sd_dist,
+    within1    = res$within_class1$mean_dist,
+    within2    = res$within_class2$mean_dist,
+    sep_z      = res$sep_z,
+    n_pcs      = res$n_pcs
   )
 }
 

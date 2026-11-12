@@ -307,6 +307,9 @@ prop.table(table(label_crowns_poly_valid))
 table(label_blob_poly_valid)
 prop.table(table(label_blob_poly_valid))
 
+# Keeping only one sensor in overlapping VNIR/SWIR sensors region ###############
+crowns_poly_valid <- sensor_to_keep(crowns_poly_valid, "swir")
+blob_poly_valid <- sensor_to_keep(blob_poly_valid, "swir")
 ## PCA #######################################################################
 
 ## DP per pixel
@@ -438,10 +441,6 @@ umap_plot_poly <- data.frame(
 )
 
 # Mean spectrum comparison ###################################################
-crowns_poly_valid <- sensor_to_keep(crowns_poly_valid, "swir")
-blob_poly_valid <- sensor_to_keep(blob_poly_valid, "swir")
-
-
 spec_crowns <- mean_spectrum_by_group(crowns_poly_valid, label_crowns_poly_valid, "DP")
 spec_blob   <- mean_spectrum_by_group(blob_poly_valid, label_blob_poly_valid, "MD")
 
@@ -563,7 +562,6 @@ blob_df$ Liana <- as.factor(label_blob_valid)
 blob_df_pure <- as.data.frame(blob_filt_valid)
 blob_df_pure$Liana <- as.factor(label_blob_valid)
 blob_df_pure$Type <- factor("blob", levels = c("crowns", "blob"))
-
 # blob_df_pure$LianaOriginal <- NA
 # blob_df_pure$poly_id <- 0
 blob_df_pure$LianaOriginal <- blob_df_pure$Liana
@@ -578,16 +576,35 @@ bhatt_md0_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "0", n
 bhatt_md1_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "1", n_repeats = 100, epsilon = 1e-6 )
 
 # Mahalanobis distance ###################################################
-maha_cr0_cr3_random <- maha_between_random(crowns_df_pure, "LianaOriginal", "0", "3", n_repeats = 500, epsilon = 1e-6)
-maha_cr0_cr3_full <- maha_between(crowns_df_pure, "LianaOriginal", "0", "3")
-maha_cr0_within <- maha_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "0", n_repeats = 500, epsilon = 1e-6)
-maha_cr3_within <- maha_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "3", n_repeats = 500, epsilon = 1e-6)
+# maha_cr0_cr3_random <- maha_between_random(crowns_df_pure, "LianaOriginal", "0", "3", n_repeats = 500, epsilon = 1e-6)
+# maha_cr0_cr3_full <- maha_between(crowns_df_pure, "LianaOriginal", "0", "3")
+# maha_cr0_within <- maha_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "0", n_repeats = 500, epsilon = 1e-6)
+# maha_cr3_within <- maha_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "3", n_repeats = 500, epsilon = 1e-6)
+# 
+# maha_md0_md1_random <- maha_between_random(blob_df_pure, "Liana", "0", "1", n_repeats = 500, epsilon = 1e-6)
+# maha_md0_md1_full <- maha_between(blob_df_pure, "Liana", "0", "1")
+# maha_md0_within <- maha_within_random(blob_df_pure, "poly_id", "Liana", "0", n_repeats = 500, epsilon = 1e-6)
+# maha_md1_within <- maha_within_random(blob_df_pure, "poly_id", "Liana", "1", n_repeats = 500, epsilon = 1e-6)
+# 
 
-maha_md0_md1_random <- maha_between_random(blob_df_pure, "Liana", "0", "1", n_repeats = 500, epsilon = 1e-6)
-maha_md0_md1_full <- maha_between(blob_df_pure, "Liana", "0", "1")
-maha_md0_within <- maha_within_random(blob_df_pure, "poly_id", "Liana", "0", n_repeats = 500, epsilon = 1e-6)
-maha_md1_within <- maha_within_random(blob_df_pure, "poly_id", "Liana", "1", n_repeats = 500, epsilon = 1e-6)
+# Spectral space: PCA  + covariance matrix
+space_crowns <- build_global_space(crowns_df_pure, var_threshold = 0.99)
+space_blob   <- build_global_space(blob_df_pure,   var_threshold = 0.99)
 
+cat("Crowns :", space_crowns$n_pcs, "components kept \n")
+cat("Blob   :", space_blob$n_pcs,   "components kept\n")
+
+# Comparisons
+res_cr03 <- maha_global_comparisons(crowns_df_pure, "LianaOriginal", "0", "3",
+                                    space = space_crowns, n_repeats = 500)
+res_md01 <- maha_global_comparisons(blob_df_pure, "Liana", "0", "1",
+                                    space = space_blob, n_repeats = 500)
+
+results <- rbind(
+  maha_results_to_df(res_cr03, "crowns", "CR0-CR3"),
+  maha_results_to_df(res_md01, "blob",   "MD0-MD1")
+)
+print(results)
 
 # Linear Discriminant Analysis (LDA) #########################################
 
@@ -796,27 +813,27 @@ all_df <- rbind(crowns_df_pure, blob_df_pure)
 # folds_crowns <- stratified_group_kfold(crowns_df_pure, "poly_id", "Liana", k = 5)
 # 
 # cv_results <- list()
-# for (i in 1:length(folds_crowns)) {  
-#   test_indices <- folds_crowns[[i]]  
-#   train_indices <- setdiff(1:nrow(crowns_df_pure), test_indices) 
-#   
+# for (i in 1:length(folds_crowns)) {
+#   test_indices <- folds_crowns[[i]]
+#   train_indices <- setdiff(1:nrow(crowns_df_pure), test_indices)
+# 
 #   train_data <- crowns_df_pure[train_indices, ]
 #   test_data  <- crowns_df_pure[test_indices, ]
-#   
+# 
 #   band_cols_cv <- sapply(train_data, is.numeric)
 #   band_cols_cv <- band_cols_cv & names(train_data) != "poly_id"
-#   
+# 
 #   train_means <- colMeans(train_data[, band_cols_cv], na.rm = TRUE)
 #   train_sds  <- apply(train_data[, band_cols_cv], 2, sd, na.rm = TRUE)
-#   
+# 
 #   train_data[, band_cols_cv] <- scale(train_data[, band_cols_cv], center = train_means, scale = train_sds)
 #   test_data[, band_cols_cv]  <- scale(test_data[, band_cols_cv], center = train_means, scale = train_sds)
-#   
+# 
 #   # Removing constant (colinear columns)
 #   X_train_cv <- train_data[, band_cols_cv]
 #   constant_cols_cv <- sapply(X_train_cv, function(x) length(unique(x)) == 1)
 #   X_train_filtered_cv <- X_train_cv[, !constant_cols_cv, drop = FALSE]
-#   
+# 
 #   if (ncol(X_train_filtered_cv) > 1) {
 #     cor_matrix_cv <- cor(X_train_filtered_cv, use = "complete.obs")
 #     high_cor_cols_cv <- names(X_train_filtered_cv)[
@@ -824,28 +841,28 @@ all_df <- rbind(crowns_df_pure, blob_df_pure)
 #     ]
 #     X_train_filtered_cv <- X_train_filtered_cv[, !names(X_train_filtered_cv) %in% high_cor_cols_cv, drop = FALSE]
 #   }
-#   
+# 
 #   train_lda_cv <- data.frame(Liana = train_data$Liana, X_train_filtered_cv)
 #   n_classes <- length(levels(train_lda_cv$Liana))
 #   model_cv <- lda(Liana ~ ., data = train_lda_cv, tol = 1e-8, prior = rep(1/n_classes, n_classes))
-#   
+# 
 #   X_test_cv <- test_data[, band_cols_cv]
 #   X_test_filtered_cv <- X_test_cv[, !constant_cols_cv, drop = FALSE]
 #   X_test_filtered_cv <- X_test_filtered_cv[, names(X_train_filtered_cv), drop = FALSE]
-#   
+# 
 #   test_lda_cv <- data.frame(Liana = test_data$Liana, X_test_filtered_cv)
 #   predictions_cv <- predict(model_cv, test_lda_cv)
-#   
+# 
 #   test_data_filtered <- test_data[test_data$Liana %in% c("0", "3"), ]
 #   pred_filtered <- predictions_cv$class[test_data$Liana %in% c("0", "3")]
-#   
+# 
 #   cm_filtered <- confusionMatrix(
 #     factor(pred_filtered, levels = c("0", "3")),
 #     factor(test_data_filtered$Liana, levels = c("0", "3")),
 #     positive = NULL)
-#   
+# 
 #   f1_filtered <- calculate_f1_manual(test_data_filtered$Liana, pred_filtered)
-#   
+# 
 #   cv_results[[i]] <- list(
 #     fold = i,
 #     accuracy = mean(predictions_cv$class == test_data$Liana),
@@ -865,6 +882,24 @@ all_df <- rbind(crowns_df_pure, blob_df_pure)
 # cat("F1-scores per fold:", paste(round(cv_f1, 3), collapse = ", "), "\n")
 # cat("Mean F1-score:", round(mean(cv_f1, na.rm = TRUE), 3), "\n")
 # 
+# one_vs_rest_f1 <- function(d, cls, pos_pred) {
+#   truth <- as.character(d$LianaOriginal) == cls
+#   pred  <- d$predicted == pos_pred
+#   tp <- sum(pred &  truth)
+#   fp <- sum(pred & !truth)
+#   fn <- sum(!pred & truth)
+#   p <- if (tp + fp > 0) tp / (tp + fp) else 0
+#   r <- if (tp + fn > 0) tp / (tp + fn) else 0
+#   if (p + r > 0) 2 * p * r / (p + r) else 0
+# }
+# 
+# f1_0 <- one_vs_rest_f1(all_cv_results, "0", "0")
+# f1_3 <- one_vs_rest_f1(all_cv_results, "3", "1")
+# 
+# cat("F1 per pixel 'CR0' (one-vs-rest):", round(f1_0, 3), "\n")
+# cat("F1 per pixel 'CR3' (one-vs-rest):", round(f1_3, 3), "\n")
+# cat("Mean F1 per pixel (CR0 & CR3):", round(mean(c(f1_0, f1_3)), 3), "\n")
+
 # all_cv_results <- do.call(rbind, lapply(cv_results, function(x) {
 #   n_test <- nrow(x$test_data)
 #   data.frame(
@@ -892,7 +927,7 @@ all_df <- rbind(crowns_df_pure, blob_df_pure)
 # 
 # 
 # accuracy_points_by_fold_filtered <- subset(accuracy_points_by_fold,LianaOriginal %in% c("0", "3"))
-# 
+
 # p3 <- ggplot() +
 #   geom_boxplot(
 #     data = accuracy_points_by_fold_filtered,
@@ -1236,6 +1271,26 @@ names(predicted_liana_per_crown_cv)[4] <- "prediction"
 
 predicted_liana_per_crown_cv$prediction <- predicted_liana_per_crown_cv$prediction * 100
 
+# Class prediction per patch (Majority score)
+majority_per_poly <- aggregate(
+  predicted ~ poly_id + LianaOriginal + fold,
+  data = all_cv_results,
+  FUN = function(x) names(sort(table(as.character(x)), decreasing = TRUE))[1]
+)
+names(majority_per_poly)[4] <- "majority_pred"
+majority_per_poly$majority_pred <- factor(majority_per_poly$majority_pred,
+                                          levels = levels(all_cv_results$predicted))
+#Accuracy of patch class predicted
+majority_per_poly$correct_majority <- majority_per_poly$majority_pred ==
+  as.character(majority_per_poly$LianaOriginal)
+
+mean_accuracy_majority_poly <- mean(majority_per_poly$correct_majority)
+cat("Accuracy majority per poly:",
+    round(mean_accuracy_majority_poly, 3), "\n")
+accuracy_majority_by_fold <- aggregate(correct_majority ~ fold,
+                                       data = majority_per_poly, FUN = mean)
+cat("Accuracy majority by fold:",
+    paste(round(accuracy_majority_by_fold$correct_majority, 3), collapse = ", "), "\n\n")
 
 
 ### F1 score graphs
@@ -1248,102 +1303,28 @@ all_predictions <- do.call(rbind, lapply(cv_results, function(x) {
   )
 }))
 
-f1_by_poly <- do.call(rbind, lapply(cv_results, function(x) {
-  unique_polys <- unique(x$test_data$poly_id)  
-  results <- lapply(unique_polys, function(poly) {
-    poly_pixels <- x$test_data[x$test_data$poly_id == poly, ]
-    poly_preds <- x$predictions$class[x$test_data$poly_id == poly]
-    
-    if (nrow(poly_pixels) == 0) return(NULL)  
-  
-    cm <- table(poly_pixels$Liana, poly_preds)
-    
-    f1_scores <- numeric(ncol(cm))
-    names(f1_scores) <- colnames(cm)
-    
-    for (i in 1:ncol(cm)) {
-      cls <- colnames(cm)[i]
-      tp <- cm[cls, cls]
-      fp <- sum(cm[, cls]) - tp
-      fn <- sum(cm[cls, ]) - tp
-      
-      precision <- ifelse(tp + fp == 0, 0, tp / (tp + fp))
-      recall <- ifelse(tp + fn == 0, 0, tp / (tp + fn))
-      f1_scores[i] <- ifelse((precision + recall) == 0, 0, 2 * precision * recall / (precision + recall))
-    }
-    
-    data.frame(
-      fold = x$fold,
-      poly_id = poly,
-      LianaOriginal = unique(poly_pixels$Liana), 
-      f1_0 = ifelse("0" %in% names(f1_scores), f1_scores["0"], NA),
-      f1_1 = ifelse("1" %in% names(f1_scores), f1_scores["1"], NA),
-      f1_macro = mean(f1_scores, na.rm = TRUE) 
-    )
-  })
-  do.call(rbind, results)  
-}))
 
-f1_by_poly$f1_mean <- f1_by_poly$f1_macro * 100 
 
-p4_f1_blob <- ggplot() +
-  geom_jitter(
-    data = f1_by_poly,
-    aes(x = LianaOriginal, y = f1_mean, shape = factor(fold), fill = factor(fold)),
-    width = 0.15, alpha = 0.5, size = 2.5, color = "black", stroke = 0.3
-  ) +
-  geom_boxplot(
-    data = f1_by_poly,
-    aes(x = LianaOriginal, y = f1_mean, color = LianaOriginal),
-    fill = NA, linewidth = 0.8, show.legend = FALSE
-  ) +
-  scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +
-  scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5" = "grey")) +
-  scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
-  labs(
-    x = "Liana class in manual delineation",
-    y = "F1-score per patch (%)",
-    title = "F1-score by patch and by fold (NIR filter)",
-    caption = paste0("Overall mean F1-score = ", round(mean(cv_f1_macro, na.rm = TRUE), 3)),
-    shape = "Fold", fill = "Fold"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right")
-
-p4_f1_fold_plots_blob <- lapply(1:5, function(current_fold) {
-  fold_data <- subset(f1_by_poly, fold == current_fold)
-  fold_f1 <- cv_f1_macro[current_fold]  # F1-score moyen du fold
-  
-  ggplot() +
-    geom_boxplot(
-      data = fold_data,
-      aes(x = LianaOriginal, y = f1_mean, color = LianaOriginal),
-      fill = NA, linewidth = 0.8, show.legend = FALSE
-    ) +
-    geom_jitter(
-      data = fold_data,
-      aes(x = LianaOriginal, y = f1_mean, fill = factor(fold), shape = factor(fold)),
-      width = 0.15, alpha = 0.7, size = 2.5, color = "black", stroke = 0.3
-    ) +
-    scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +
-    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +
-    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
-    labs(
-      x = "Liana class in manual delineation",
-      y = "F1-score per patch (%)",
-      title = paste("F1-score on fold", current_fold),
-      caption = paste0("Fold mean F1-score = ", round(fold_f1, 3))
-    ) +
-    theme_minimal() +
-    theme(legend.position = "none")
-})
-
-grid.arrange(
-  grobs = c(p4_f1_fold_plots_blob, p4_f1_blob),
-  ncol = 2,
-  top = textGrob("F1-score by patch and by fold (NIR filter)",
-                 gp = gpar(fontsize = 12, fontface = "bold"))
-)
+#F1 class predicted per patch (majority)
+cm_poly <- table(
+    predicted = majority_per_poly$majority_pred,
+    truth = factor(as.character(majority_per_poly$LianaOriginal),
+                   levels = levels(all_cv_results$predicted)))
+print(cm_poly)
+f1_by_class_poly <- sapply(colnames(cm_poly), function(cls) {
+    tp <- cm_poly[cls, cls] # true positive
+    fp <- sum(cm_poly[cls, ]) - tp  #false positive
+    fn <- sum(cm_poly[, cls]) - tp   #false negative
+    p <- if (tp + fp > 0) tp / (tp + fp) else 0 #precision
+    r <- if (tp + fn > 0) tp / (tp + fn) else 0 #recall
+    if (p + r > 0) 2 * p * r / (p + r) else 0
+    })
+f1_macro_majority_poly <- mean(f1_by_class_poly)
+ 
+cat("F1 by class by patch (majority):",
+        paste(names(f1_by_class_poly), round(f1_by_class_poly, 3), sep = " = ", collapse = ", "), "\n")
+cat("F1 macro majority per patch:",
+      round(f1_macro_majority_poly, 3), "\n\n")
 
 
 ### StratifiedGroupKFold trained on all labels ####
