@@ -461,8 +461,8 @@ for (g in unique(selected_smooth$group)) {
     rows <- which(selected_smooth$group == g & selected_smooth$segment == s)
     
     if (length(rows) >= 11) {
-      selected_smooth$mean_smooth[rows] <- sgolayfilt(selected_smooth$mean[rows], p = 3, n = 11)
-      selected_smooth$sd_smooth[rows]   <- sgolayfilt(selected_smooth$sd[rows], p = 3, n = 11)
+      selected_smooth$mean_smooth[rows] <- sgolayfilt(selected_smooth$mean[rows], p = 1, n = 5)
+      selected_smooth$sd_smooth[rows]   <- sgolayfilt(selected_smooth$sd[rows], p = 1, n = 5)
     }
   }
 }
@@ -499,8 +499,8 @@ for (g in unique(diff_spectra_smooth$group)) {
   for (s in unique(diff_spectra_smooth$segment[diff_spectra_smooth$group == g])) {
     rows <- which(diff_spectra_smooth$group == g & diff_spectra_smooth$segment == s)
     if (length(rows) >= 11) {
-      diff_spectra_smooth$mean_smooth[rows] <- sgolayfilt(diff_spectra_smooth$mean[rows], p = 3, n = 11)
-      diff_spectra_smooth$sd_smooth[rows]   <- sgolayfilt(diff_spectra_smooth$sd[rows], p = 3, n = 11)
+      diff_spectra_smooth$mean_smooth[rows] <- sgolayfilt(diff_spectra_smooth$mean[rows],  p = 1, n = 5)
+      diff_spectra_smooth$sd_smooth[rows]   <- sgolayfilt(diff_spectra_smooth$sd[rows],  p = 1, n = 5)
     }
   }
 }
@@ -527,8 +527,8 @@ for (g in unique(med_selected_smooth$group)) {
     rows <- which(med_selected_smooth$group == g & med_selected_smooth$segment == s)
     
     if (length(rows) >= 11) {
-      med_selected_smooth$med_smooth[rows] <- sgolayfilt(med_selected_smooth$med[rows], p = 3, n = 11)
-      med_selected_smooth$sd_smooth[rows]   <- sgolayfilt(med_selected_smooth$sd[rows], p = 3, n = 11)
+      med_selected_smooth$med_smooth[rows] <- sgolayfilt(med_selected_smooth$med[rows],  p = 1, n = 5)
+      med_selected_smooth$sd_smooth[rows]   <- sgolayfilt(med_selected_smooth$sd[rows],  p = 1, n = 5)
     }
   }
 }
@@ -552,11 +552,10 @@ poly_id_m <- as.matrix(poly_id_r)[, 1]
 poly_id_valid <- poly_id_m[DP_per_pixel$valid_idx]
 crowns_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
 
-bhatt_cr0_cr3_random <- bhatt_between_random(crowns_df_pure, "LianaOriginal", "0", "3", n_repeats = 100)
-bhatt_cr0_cr3_full <- bhatt_between(crowns_df_pure, "LianaOriginal", "0", "3")
-bhatt_cr0_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "0", n_repeats = 100)
-bhatt_cr3_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "3", n_repeats = 100)
-  
+bhatt_cr0_cr3_random <- bhatt_between_random(crowns_df_pure, "LianaOriginal", "0", "3", n_repeats = 100, epsilon = 1e-6 )
+bhatt_cr0_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "0", n_repeats = 100, epsilon = 1e-6 )
+bhatt_cr3_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "3", n_repeats = 100, epsilon = 1e-6 )
+
 # BLOB 
 blob_df <- as.data.frame(blob_filt_valid)
 blob_df$ Liana <- as.factor(label_blob_valid)
@@ -574,11 +573,20 @@ poly_id_m <- as.matrix(poly_id_r)[, 1]
 poly_id_valid <- poly_id_m[MD_per_pixel$valid_idx]
 blob_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
 
+bhatt_md0_md1_random <- bhatt_between_random(blob_df_pure, "Liana", "0", "1", n_repeats = 100, epsilon = 1e-6 )
+bhatt_md0_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "0", n_repeats = 100, epsilon = 1e-6 )
+bhatt_md1_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "1", n_repeats = 100, epsilon = 1e-6 )
 
-bhatt_md0_md1_random <- bhatt_between_random(blob_df_pure, "Liana", "0", "1", n_repeats = 100)
-bhatt_md0_md1_full <- bhatt_between(blob_df_pure, "Liana", "0", "1")
-bhatt_md0_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "0", n_repeats = 100)
-bhatt_md1_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "1", n_repeats = 100)
+# Mahalanobis distance ###################################################
+maha_cr0_cr3_random <- maha_between_random(crowns_df_pure, "LianaOriginal", "0", "3", n_repeats = 500, epsilon = 1e-6)
+maha_cr0_cr3_full <- maha_between(crowns_df_pure, "LianaOriginal", "0", "3")
+maha_cr0_within <- maha_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "0", n_repeats = 500, epsilon = 1e-6)
+maha_cr3_within <- maha_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "3", n_repeats = 500, epsilon = 1e-6)
+
+maha_md0_md1_random <- maha_between_random(blob_df_pure, "Liana", "0", "1", n_repeats = 500, epsilon = 1e-6)
+maha_md0_md1_full <- maha_between(blob_df_pure, "Liana", "0", "1")
+maha_md0_within <- maha_within_random(blob_df_pure, "poly_id", "Liana", "0", n_repeats = 500, epsilon = 1e-6)
+maha_md1_within <- maha_within_random(blob_df_pure, "poly_id", "Liana", "1", n_repeats = 500, epsilon = 1e-6)
 
 
 # Linear Discriminant Analysis (LDA) #########################################
@@ -749,8 +757,8 @@ all_df <- rbind(crowns_df_pure, blob_df_pure)
 # p1 <- ggplot(accuracy_per_crown_blob, aes(x = LianaOriginal, y = accuracy, fill = LianaOriginal)) +
 #   geom_boxplot() +
 #   geom_jitter(width = 0.15, alpha = 0.5) +
-#   scale_fill_manual(values = c("0" = "pink1", "1" = "palevioletred1",
-#                                "2" = "palevioletred3", "3" = "palevioletred4")) +
+#   scale_fill_manual(values = c("0" = "#FFEE99", "1" = "#FFCC65",
+#                                "2" = "#FF9932", "3" = "#FF6619")) +
 #   labs(x = "Liana class in drone photos (DP)", y = "Mean accuracy per crown",
 #        title = "LDA trained on MD, tested on DP (Illu filter)") +
 #   theme(legend.position = "none")
@@ -771,8 +779,8 @@ all_df <- rbind(crowns_df_pure, blob_df_pure)
 # p2 <- ggplot(predicted_liana_per_crown_blob, aes(x = LianaOriginal, y = prediction, fill = LianaOriginal)) +
 #   geom_boxplot() +
 #   geom_jitter(width = 0.15, alpha = 0.5) +
-#   scale_fill_manual(values = c("0" = "pink1", "1" = "palevioletred1",
-#                                "2" = "palevioletred3", "3" = "palevioletred4")) +
+#   scale_fill_manual(values = c("0" = "#FFEE99", "1" = "#FFCC65",
+#                                "2" = "#FF9932", "3" = "#FF6619")) +
 #   labs(x = "Liana class in drone photos (DP)", y = "Liana predicted per crown (%)",
 #        title = "LDA trained on MD, tested on DP (Illu filter)") +
 #   theme(legend.position = "none")
@@ -902,7 +910,7 @@ all_df <- rbind(crowns_df_pure, blob_df_pure)
 #     color = "black",
 #     stroke = 0.3
 #   ) +
-#   scale_color_manual(values = c("0" = "pink1", "3" = "palevioletred4")) +
+#   scale_color_manual(values = c("0" = "#FFEE99", "3" = "#FF6619")) +
 #   scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5"="#DB6D00")) +
 #   scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
 #   labs(
@@ -947,7 +955,7 @@ all_df <- rbind(crowns_df_pure, blob_df_pure)
 #     linewidth = 0.8,
 #     show.legend = FALSE
 #   ) +
-#   scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred1", "2" = "palevioletred3", "3" = "palevioletred4")) +
+#   scale_color_manual(values = c("0" = "#FFEE99", "1" = "#FFCC65", "2" = "#FF9932", "3" = "#FF6619")) +
 #   scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5"="grey")) +
 #   scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
 #   labs(
@@ -997,7 +1005,7 @@ all_df <- rbind(crowns_df_pure, blob_df_pure)
 #       color = "black", 
 #       stroke = 0.3
 #     ) +
-#     scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred1", "2" = "palevioletred3", "3" = "palevioletred4")) +  
+#     scale_color_manual(values = c("0" = "#FFEE99", "1" = "#FFCC65", "2" = "#FF9932", "3" = "#FF6619")) +  
 #     scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +  
 #     scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +  
 #     labs(
@@ -1130,89 +1138,6 @@ accuracy_by_fold <- aggregate(
 )
 names(accuracy_by_fold)[2] <- "correct"
 
-p4 <- ggplot() +
-  geom_jitter(
-    data = predicted_liana_per_crown_cv,
-    aes(x = LianaOriginal, y = prediction, shape = factor(fold), fill = factor(fold)),
-    width = 0.15,
-    alpha = 0.5,
-    size = 2.5,
-    color = "black",
-    stroke = 0.3
-  ) +
-  geom_boxplot(
-    data = predicted_liana_per_crown_cv,
-    aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
-    fill = NA,
-    linewidth = 0.8,
-    show.legend = FALSE
-  ) +
-  scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred1", "2" = "palevioletred3", "3" = "palevioletred4")) +
-  scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5" = "grey")) +
-  scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
-  scale_x_discrete(labels = c("0" = "CR0", "1" = "CR1", "2" = "CR2", "3" = "CR3")) +
-  labs(
-    x = "Liana class in crowns dataset (CR)",
-    y = "Liana predicted per crown (%)",
-    title = "Mean liana prediction on all fold tested (NIR filter)",
-    caption = paste0(
-      "Mean accuracy  = ", round(mean_poly_accuracy, 3), " | ",
-      "Mean F1-score  = ", round(mean_poly_f1, 3)
-    ),
-    shape = "Fold", fill = "Fold"
-  ) +
-  theme(legend.position = "right") +
-  theme_minimal()
-
-p4
-
-p4_fold_plots <- lapply(1:5, function(current_fold) {
-  fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
-  fold_accuracy_pixel <- mean(fold_data$prediction / 100, na.rm = TRUE)  
-  fold_accuracy_poly <- cv_poly_accuracies[current_fold]  
-  fold_f1_poly <- cv_poly_f1[current_fold]
-  
-  ggplot() +
-    geom_boxplot(
-      data = fold_data,
-      aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
-      fill = NA,
-      linewidth = 0.8,
-      show.legend = FALSE
-    ) +
-    geom_jitter(
-      data = fold_data,
-      aes(x = LianaOriginal, y = prediction, fill = factor(fold), shape = factor(fold)),
-      width = 0.15,
-      alpha = 0.7,
-      size = 2.5,
-      color = "black",
-      stroke = 0.3
-    ) +
-    scale_color_manual(values = c("0" = "pink1", "1" = "palevioletred1", "2" = "palevioletred3", "3" = "palevioletred4")) +
-    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00"), name ="Fold") +
-    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25), name="Fold") +
-    scale_x_discrete(labels = c("0" = "CR0", "1" = "CR1", "2" = "CR2", "3" = "CR3")) +
-    labs(
-      x = "Liana class in crowns dataset (CR)",
-      y = "Liana predicted per crown (%)",
-      title = paste("Testing on fold", current_fold),
-      caption = paste0(
-        "Fold mean accuracy = ", round(fold_accuracy_poly, 3), " | ",
-        "Fold F1-score = ", round(fold_f1_poly, 3)
-      )
-    ) +
-    theme(legend.position = "none") +
-    theme_minimal()
-})
-
-grid.arrange(
-  grobs = c(p4_fold_plots, p4),
-  ncol = 2,
-  top = textGrob("Liana prediction by crown and by fold (NIR filter)",
-                 gp = gpar(fontsize = 12, fontface = "bold"))
-)
-
 #### For blob
 set.seed(123)
 folds_blob <- stratified_group_kfold(blob_df_pure, "poly_id", "Liana", k = 5)
@@ -1312,91 +1237,6 @@ names(predicted_liana_per_crown_cv)[4] <- "prediction"
 predicted_liana_per_crown_cv$prediction <- predicted_liana_per_crown_cv$prediction * 100
 
 
-p4_blob <- ggplot() +
-  geom_jitter(
-    data = predicted_liana_per_crown_cv,
-    aes(x = LianaOriginal, y = prediction, shape = factor(fold), fill = factor(fold)),
-    width = 0.15,
-    alpha = 0.5,
-    size = 2.5,
-    color = "black",
-    stroke = 0.3
-  ) +
-  geom_boxplot(
-    data = predicted_liana_per_crown_cv,
-    aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
-    fill = NA,
-    linewidth = 0.8,
-    show.legend = FALSE
-  ) +
-  scale_color_manual(values = c("0" = "#ABABAB", "1" = "#001312")) +
-  scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5"="grey")) +
-  scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
-  scale_x_discrete(labels = c("0" = "MD0", "1" = "MD1")) +
-  
-  labs(
-    x = "Liana class in manual delineation (MD)",
-    y = "Liana predicted per crown (%)",
-    title = "Mean liana prediction on all fold tested (NIR filter)",
-    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel * 100, 1), "% | ",
-                     "Mean F1-score = ", round(mean(cv_f1_macro, na.rm = TRUE), 3)),
-    shape = "Fold", 
-    fill = "Fold"    
-  )+
-  theme(legend.position = "right") +
-  theme_minimal()
-
-p4_blob
-
-accuracy_by_fold <- aggregate(
-  correct ~ fold,
-  data = subset(all_cv_results, LianaOriginal %in% c("0", "1")),
-  FUN = mean
-)
-
-p4_fold_plots_blob <- lapply(1:5, function(current_fold) {
-  fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
-  fold_accuracy <- accuracy_by_fold$correct[accuracy_by_fold$fold == current_fold]
-  fold_f1 <- cv_f1_macro[current_fold] 
-  
-  ggplot() +
-    geom_boxplot(
-      data = fold_data,
-      aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
-      fill = NA,
-      linewidth = 0.8,
-      show.legend = FALSE
-    ) +
-    geom_jitter(
-      data = fold_data,
-      aes(x = LianaOriginal, y = prediction, fill = factor(fold), shape = factor(fold)),
-      width = 0.15,
-      alpha = 0.7,
-      size = 2.5,
-      color = "black", 
-      stroke = 0.3
-    ) +
-    scale_color_manual(values = c("0" = "#ABABAB", "1" = "#001312")) +  
-    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +  
-    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +  
-    scale_x_discrete(labels = c("0" = "MD0", "1" = "MD1")) +
-    labs(
-      x = "Liana class in manual delineation (MD)",
-      y = "Liana predicted per patch (%)",
-      title = paste("Testing on fold", current_fold),
-      caption = paste0("Fold mean accuracy = ", round(fold_accuracy * 100, 1), "% | ",
-                       "Fold F1-score = ", round(fold_f1, 3))
-    ) +
-    theme(legend.position = "none")+
-    theme_minimal()
-})
-
-grid.arrange(
-  grobs = c(p4_fold_plots_blob, p4_blob),
-  ncol = 2,
-  top = textGrob("Liana prediction by patch and by fold (NIR filter)",
-                 gp = gpar(fontsize = 12, fontface = "bold"))
-)
 
 ### F1 score graphs
 all_predictions <- do.call(rbind, lapply(cv_results, function(x) {
@@ -1457,7 +1297,7 @@ p4_f1_blob <- ggplot() +
     aes(x = LianaOriginal, y = f1_mean, color = LianaOriginal),
     fill = NA, linewidth = 0.8, show.legend = FALSE
   ) +
-  scale_color_manual(values = c("0" = "#ABABAB", "1" = "#001312")) +
+  scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +
   scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5" = "grey")) +
   scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
   labs(
@@ -1485,7 +1325,7 @@ p4_f1_fold_plots_blob <- lapply(1:5, function(current_fold) {
       aes(x = LianaOriginal, y = f1_mean, fill = factor(fold), shape = factor(fold)),
       width = 0.15, alpha = 0.7, size = 2.5, color = "black", stroke = 0.3
     ) +
-    scale_color_manual(values = c("0" = "#ABABAB", "1" = "#001312")) +
+    scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +
     scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +
     scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
     labs(
@@ -1609,7 +1449,7 @@ df_blob <- as.data.frame(combined_blob, na.rm = TRUE)
 df_blob$label <- factor(df_blob$label,levels = c(0, 1),labels = c("MD0", "MD1"))
 df_blob$type <- "MD"
 
-label_crown_illu <- rasterize(crowns, illu, field = "LianaFullC")  # Labels DP
+label_crowns_illu <- rasterize(crowns, illu, field = "LianaFullC")  # Labels DP
 combined_crowns <- c(illu, label_crowns_illu)
 names(combined_crowns) <- c("illumination", "label")
 df_crowns <- as.data.frame(combined_crowns, na.rm = TRUE)

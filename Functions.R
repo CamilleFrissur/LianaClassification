@@ -563,7 +563,7 @@ maha_between <- function(df, label_col, class1, class2, epsilon = 1e-10) {
   sigma1 <- regularize_cov(cov(d1), epsilon) 
   sigma2 <- regularize_cov(cov(d2), epsilon)  
   
-  dist_raw <- tryCatch(mahalanobis_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
+  dist_raw <- tryCatch(maha_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
   if (is.na(dist_raw)) return(NA)
   
   list(dist = dist_raw, coeff = exp(-dist_raw), n1 = nrow(d1), n2 = nrow(d2), p = ncol(d1))
@@ -608,7 +608,7 @@ maha_between_random <- function(df, label_col, class1, class2,
     sigma1 <- regularize_cov(cov(d1), epsilon)  
     sigma2 <- regularize_cov(cov(d2), epsilon) 
     
-    distances[i] <- tryCatch(mahalanobis_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
+    distances[i] <- tryCatch(maha_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
   }
   
   valid_dists <- distances[!is.na(distances)]
@@ -652,7 +652,13 @@ maha_within_random <- function(df, poly_id_col, label_col, target_class,
     data1 <- all_data[df_class[[poly_id_col]] %in% group1_polys, , drop = FALSE]
     data2 <- all_data[df_class[[poly_id_col]] %in% group2_polys, , drop = FALSE]
     
-    if (ncol(data1) == 0) {
+    var1 <- apply(data1, 2, var)
+    var2 <- apply(data2, 2, var)
+    good_bands <- (var1 > 1e-6) & (var2 > 1e-6)
+    data1 <- data1[, good_bands, drop = FALSE]
+    data2 <- data2[, good_bands, drop = FALSE]
+    
+    if (ncol(data1) == 0 || nrow(data1) < 2 || nrow(data2) < 2) {
       distances[i] <- NA
       next
     }
@@ -662,7 +668,7 @@ maha_within_random <- function(df, poly_id_col, label_col, target_class,
     sigma1 <- regularize_cov(cov(data1), epsilon) 
     sigma2 <- regularize_cov(cov(data2), epsilon)  
     
-    distances[i] <- tryCatch(mahalanobis_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
+    distances[i] <- tryCatch(maha_dist(mu1, mu2, sigma1, sigma2), error = function(e) NA)
   }
   
   valid_dists <- distances[!is.na(distances)]

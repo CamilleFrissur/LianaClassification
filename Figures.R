@@ -1,4 +1,6 @@
 library(terra)
+library(tidyterra)
+library(maptiles)
 library(ggplot2)
 library(dplyr)
 library(gridExtra)
@@ -9,46 +11,59 @@ setwd ("D:/DataCamille/")
 # Maps ################################################################
 
 ## Dataset
-blob_df <- as.data.frame(label_blob, xy = TRUE, na.rm = TRUE) %>%mutate(dataset = "blob (MD)")
+blob_df <- as.data.frame(label_blob, xy = TRUE, na.rm = TRUE) %>%mutate(dataset = "MD")
 
-crowns_df <- as.data.frame(label_crowns, xy = TRUE, na.rm = TRUE) %>%  mutate(dataset = "crowns (DP)")
+crowns_df <- as.data.frame(label_crowns, xy = TRUE, na.rm = TRUE) %>%  mutate(dataset = "CR")
 
 plot_df <- bind_rows (blob_df, crowns_df)
 plot_df$LianaFullC <- as.factor(plot_df$LianaFullC)
-plot_df$Liana <- ifelse(is.na(plot_df$Type), as.character(plot_df$LianaFullC),
+plot_df$Class <- ifelse(is.na(plot_df$Type), as.character(plot_df$LianaFullC),
                         ifelse(is.na(plot_df$LianaFullC), plot_df$Type,
                                paste0(plot_df$Type, plot_df$LianaFullC)))
-ggplot() +
-  geom_tile(data = blob_df, aes(x, y, fill = "blob (MD)"), alpha = 1) +
-  geom_tile(data = crowns_df, aes(x, y, fill = "crowns (DP)"), alpha = 1) +
-  scale_fill_manual(name = "Dataset",
-                    values = c("blob (MD)" = "#001312",
-                               "crowns (DP)" = "palevioletred1")) +
-  theme_minimal() +
-  theme(legend.position = "bottom")
 
 ## Liana labels
-
 blob_df$Type <- as.factor(blob_df$Type)
 crowns_df$LianaFullC <- as.factor(crowns_df$LianaFullC)
 
+# Retrieve topo
+bbox_sf <- st_as_sfc(st_bbox(c(xmin = min(plot_df$x), ymin = min(plot_df$y),
+                               xmax = max(plot_df$x), ymax = max(plot_df$y)),
+                             crs = st_crs(crs(label_blob)))) |>
+  st_as_sf()
+
+tiles <- tiles <- get_tiles(bbox_sf, provider = "OpenTopoMap", crop = FALSE, zoom = 14)
+
+tiles_proj <- project(tiles, crs(label_blob))
+
+# Plots
+plot_all <- ggplot() +
+  geom_spatraster_rgb(data = tiles_proj, maxcell = Inf) +
+  geom_tile(data = blob_df, aes(x, y, fill = "MD"), alpha = 1) +
+  geom_tile(data = crowns_df, aes(x, y, fill = "CR"), alpha = 1) +
+  scale_fill_manual(name = "Dataset",
+                    values = c("MD" = "#1965FF",
+                               "CR" = "#FF9932")) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
 plot_blob <- ggplot() +
   geom_tile(data = blob_df, aes(x, y, fill = Type), alpha = 1) +
-  scale_fill_manual(values = c("0" = "#ABABAB", "1" = "#001312")) +
+  scale_fill_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +
   theme_minimal() +
   theme(legend.position = "bottom")+
-  labs(title="Blob dataset", fill = "Liana")
+  labs(title="b. Manually delineated (MD) dataset", fill = "Class")
 
 plot_crowns <- ggplot() +
   geom_tile(data = crowns_df, aes(x, y, fill = LianaFullC), alpha = 1) +
-  scale_fill_manual(name = "Liana",
-                    values = c("CR0" = "pink1", "CR1" = "palevioletred1",
-                               "CR2" = "palevioletred3", "CR3" = "palevioletred4")) +
+  scale_fill_manual(name = "Class",
+                    values = c("CR0" = "#FFEE99", "CR1" = "#FFCC65",
+                               "CR2" = "#FF9932", "CR3" = "#FF6619")) +
   theme_minimal() +
   theme(legend.position = "bottom")+
-  labs(title = "Crowns dataset")
+  labs(title = "a. Crowns (CR) dataset")
 
-grid.arrange(plot_blob, plot_crowns, ncol = 2)
+plot_all
+grid.arrange( plot_crowns, plot_blob, ncol = 2)
 
 # Boxplot illu ######################################################
 ggplot(df_all, aes(x = label,
@@ -66,24 +81,29 @@ ggplot(df_all, aes(x = label,
     legend.position = "top"                           
   )+
   scale_fill_manual(name = "Type",
-                    values = c("MD0" = "#ababab",
-                               "MD1" = "#001312",
-                               "CR0"="pink1", "CR1" = "palevioletred1",
-                               "CR2" = "palevioletred3", "CR3" = "palevioletred4"))
+                    values = c("MD0" = "#99EDFF",
+                               "MD1" = "#1965FF",
+                               "CR0"="#FFEE99", "CR1" = "#FFCC65",
+                               "CR2" = "#FF9932", "CR3" = "#FF6619"))
 
 
 # PCA ################################################################
 
 ## CROWNS
+pca_plot_crowns_half <- pca_plot_crowns %>%
+  filter(LianaFullCrown %in% c(0, 3)) %>%
+  mutate(LianaFullCrown = droplevels(factor(LianaFullCrown)))
+pca_plot_crowns_half <- pca_plot_crowns_half %>%
+  sample_frac(0.5)
 
-ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
+ggplot(pca_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  # scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
-  scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
+  # scale_color_manual(values = c("0"= "#FFEE99", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
+  scale_color_manual(values = c("0"= "#FFCC65", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
                      #scale_color_manual(values = c("0"= "#21421e", "1"="#568203","2"="#9acd32","3"= "#c5e384"),
                      
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "PCA of the HSI values of the crowns dataset (NIR filter)",
+  labs(title= "pca of the HSI values of the crowns dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns[2], 1), "%)"))+
   theme_minimal()
@@ -93,45 +113,47 @@ ggplot(pca_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
 # ggplot(pca_plot_crowns, aes(x = x, y = y, color = illu)) +
 #   geom_point() +
 #   scale_color_viridis_c(name = "Illumination") +
-#   labs(title = "PCA of the HSI values of the DP dataset colored by illumination")
+#   labs(title = "pca of the HSI values of the DP dataset colored by illumination")
 
 ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
-  labs(title= "PCA of the mean spectrum per polygon of the crowns dataset (NIR filter)",
+  scale_color_manual(values = c("CR0"= "#FFEE99", "CR1"="#FFCC65","CR2"="#FF9932","CR3"= "#FF6619"))+
+  labs(title= "pca of the mean spectrum per polygon of the crowns dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))+
   theme_minimal()
 
 # BLOB
+pca_plot_blob_half <- pca_plot_blob %>%
+  sample_frac(0.5)
 
-ggplot(pca_plot_blob, aes(x = x, y = y, color = Type)) +
+ggplot(pca_plot_blob_half, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#ABABAB", "1" = "#001312"),
+    values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA of the HSI values of the MD dataset (NIR filter)",
+  labs(title= "pca of the HSI values of the MD dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob[2], 1), "%)"))+
   theme_minimal()
 
 # # Only with illu filter
-# pca_plot_blob$illu <- illu_blob_valid
-# ggplot(pca_plot_blob, aes(x = x, y = y, color = illu)) +
+# umap_plot_blob$illu <- illu_blob_valid
+# ggplot(umap_plot_blob, aes(x = x, y = y, color = illu)) +
 #   geom_point() +
 #   scale_color_viridis_c(name = "Illumination") +
-#   labs(title = "PCA of the HSI values of the MD dataset colored by illumination")
+#   labs(title = "umap of the HSI values of the MD dataset colored by illumination")
 
-ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
+ggplot(umap_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() +
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#ABABAB", "1" = "#001312"),
+    values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA of the mean spectrum per polygon of the MD dataset (NIR filter)",
+  labs(title= "umap of the mean spectrum per polygon of the MD dataset (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob_poly[2], 1), "%)"))+
   theme_minimal()
@@ -140,9 +162,9 @@ ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
 
 ## CROWNS
 
-ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
+ggplot(tsne_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
+  scale_color_manual(values = c("0"= "#FFEE99", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "tSNE of the HSI values of the drone photos dataset (Illu filter)" )+
   theme_minimal()
@@ -156,7 +178,7 @@ ggplot(tsne_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
 
 ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+ #(size = 3)
-  scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
+  scale_color_manual(values = c("CR0"= "#FFEE99", "CR1"="#FFCC65","CR2"="#FF9932","CR3"= "#FF6619"))+
   # scale_color_viridis_d(option="turbo")+
   labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (Illu filter)" )+
   theme_minimal()
@@ -166,7 +188,7 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#ABABAB", "1" = "#001312"),
+    values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "tSNE of the HSI values of the MD dataset (Illu filter)" )+
@@ -183,7 +205,7 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() + #(size = 3)
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#ABABAB", "1" = "#001312"),
+    values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (Illu filter)" )+
@@ -192,12 +214,18 @@ ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
 ## UMAP #########################################################################
 
 ## CROWNS
-ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
+umap_plot_crowns_half <- umap_plot_crowns %>%
+  filter(LianaFullCrown %in% c(0, 3)) %>%
+  mutate(LianaFullCrown = droplevels(factor(LianaFullCrown)))
+umap_plot_crowns_half <- umap_plot_crowns_half %>%
+  sample_frac(0.5)
+
+ggplot(umap_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("0"= "pink1", "1"="palevioletred1","2"="palevioletred3","3"= "palevioletred4"),
+  scale_color_manual(values = c("0"= "#FFCC65", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "UMAP of the HSI values of the DP dataset (Illu filter)" )+
+  labs(title= "UMAP of the HSI values of the crowns dataset (NIR filter)" )+
   theme_minimal()
 
 # Only with illu filter
@@ -209,17 +237,20 @@ ggplot(umap_plot_crowns, aes(x = x, y = y, color = LianaFullCrown)) +
 
 ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
-  scale_color_manual(values = c("CR0"= "pink1", "CR1"="palevioletred1","CR2"="palevioletred3","CR3"= "palevioletred4"))+
+  scale_color_manual(values = c("CR0"= "#FFEE99", "CR1"="#FFCC65","CR2"="#FF9932","CR3"= "#FF6619"))+
   labs(title= "UMAP of the mean HSI value per polygon of the DP dataset (Illu filter)" )+
   theme_minimal()
 
 ## BLOB
+umap_plot_blob_half <- umap_plot_blob %>%
+  sample_frac(0.5)
 
-ggplot(umap_plot_blob, aes(x = x, y = y, color = Type)) +
+
+ggplot(umap_plot_blob_half, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#ABABAB", "1" = "#001312"),
+    values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "UMAP of the HSI values of the MD dataset (Illu filter)" )+
@@ -236,7 +267,7 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
-    values = c("0" = "#ABABAB", "1" = "#001312"),
+    values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
   labs(title= "UMAP of the mean HSI value per polygon of the MD dataset (Illu filter)" )+
@@ -246,9 +277,9 @@ ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
   display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "MD0 (No Liana MD)", "MD1 ( Liana MD)"),
-  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "white", "#001312"),
-  # color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#ABABAB", "#001312"),
-  # color = c("#21421e", "#568203", "#9acd32","#c5e384", "#ABABAB", "#001312"),
+  color = c("#FFEE99", "#FFCC65", "#FF9932","#FF6619", "#99EDFF", "#1965FF"),
+  # color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#99EDFF", "#1965FF"),
+  # color = c("#21421e", "#568203", "#9acd32","#c5e384", "#99EDFF", "#1965FF"),
   linetype = c ("solid","solid","solid","solid", "solid", "solid")
   #linetype = c ("solid","solid","solid","solid", "solid", "solid")
   )
@@ -431,7 +462,7 @@ ggplot(selected_smooth[selected_smooth$wavelength >1420 & selected_smooth$wavele
 diff_label_config <- data.frame(
   group = c("CR3 - CR0", "MD1 - MD0"),
   display_name = c("CR3 - CR0", "MD1 - MD0"),
-  color = c("palevioletred1", "#001312"), 
+  color = c("#FFCC65", "#1965FF"), 
   linetype = c("solid", "solid")
 )
 
@@ -618,9 +649,9 @@ ggplot(diff_spectra_smooth[diff_spectra_smooth$wavelength > 1420 & diff_spectra_
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
   display_name = c("CR0 ( No Liana DP)", "CR1 (DP)", "CR2", "CR3 (Liana DP)", "No liana (MD)", "Liana (MD)"),
-  color = c("pink1", "palevioletred1", "palevioletred3","palevioletred4", "#ABABAB", "#001312"),
-  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#ABABAB", "#001312"),
-  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#ABABAB", "#001312"),
+  color = c("#FFEE99", "#FFCC65", "#FF9932","#FF6619", "#99EDFF", "#1965FF"),
+  #color = c("#662700", "#CC5500", "#FF8E33","#FFCA99", "#99EDFF", "#1965FF"),
+  #color = c("#21421e", "#568203", "#9acd32","#c5e384", "#99EDFF", "#1965FF"),
   
   linetype = c ("solid","solid","solid","solid", "solid", "solid"))
   #linetype = c ("solid","solid","solid","solid", "solid", "solid"))
@@ -879,60 +910,25 @@ label_config <- data.frame(
   
 # Bhattacharyya ################################################################
 
-plot_data <- data.frame(
+# Initialisation
+plot_bhatt_data <- data.frame(
   group = character(0),
   distance = numeric(0),
-  dataset = character(0),  # "CR" or "MD"
-  type = character(0)       # "Within" or "Between"
+  dataset = character(0),
+  type = character(0)
 )
 
-#Within
-plot_data <- rbind(
-  plot_data,
-  data.frame(
-    group = rep("CR0", length(bhatt_cr0_within$all_distances)),
-    distance = bhatt_cr0_within$all_distances,
-    dataset = rep("CR", length(bhatt_cr0_within$all_distances)),
-    type = rep("Within_Class", length(bhatt_cr0_within$all_distances))
-  ),
-  data.frame(
-    group = rep("CR3", length(bhatt_cr3_within$all_distances)),
-    distance = bhatt_cr3_within$all_distances,
-    dataset = rep("CR", length(bhatt_cr3_within$all_distances)),
-    type = rep("Within_Class", length(bhatt_cr3_within$all_distances))
-  ),
-  data.frame(
-    group = rep("MD0", length(bhatt_md0_within$all_distances)),
-    distance = bhatt_md0_within$all_distances,
-    dataset = rep("MD", length(bhatt_md0_within$all_distances)),
-    type = rep("Within_Class", length(bhatt_md0_within$all_distances))
-  ),
-  data.frame(
-    group = rep("MD1", length(bhatt_md1_within$all_distances)),
-    distance = bhatt_md1_within$all_distances,
-    dataset = rep("MD", length(bhatt_md1_within$all_distances)),
-    type = rep("Within_Class", length(bhatt_md1_within$all_distances))
-  )
-)
+# Within
+plot_bhatt_data <- add_to_plot(plot_bhatt_data, "CR0", bhatt_cr0_within, "CR", "Within_Class")
+plot_bhatt_data <- add_to_plot(plot_bhatt_data, "CR3", bhatt_cr3_within, "CR", "Within_Class")
+plot_bhatt_data <- add_to_plot(plot_bhatt_data, "MD0", bhatt_md0_within, "MD", "Within_Class")
+plot_bhatt_data <- add_to_plot(plot_bhatt_data, "MD1", bhatt_md1_within, "MD", "Within_Class")
 
 # Between
-plot_data <- rbind(
-  plot_data,
-  data.frame(
-    group = rep("CR0 vs CR3", length(bhatt_cr0_cr3_random$all_distances)),
-    distance = bhatt_cr0_cr3_random$all_distances,
-    dataset = rep("CR", length(bhatt_cr0_cr3_random$all_distances)),
-    type = rep("Between_Class", length(bhatt_cr0_cr3_random$all_distances))
-  ),
-  data.frame(
-    group = rep("MD0 vs MD1", length(bhatt_md0_md1_random$all_distances)),
-    distance = bhatt_md0_md1_random$all_distances,
-    dataset = rep("MD", length(bhatt_md0_md1_random$all_distances)),
-    type = rep("Between_Class", length(bhatt_md0_md1_random$all_distances))
-  )
-)
+plot_bhatt_data <- add_to_plot(plot_bhatt_data, "CR0 vs CR3", bhatt_cr0_cr3_random, "CR", "Between_Class")
+plot_bhatt_data <- add_to_plot(plot_bhatt_data, "MD0 vs MD1", bhatt_md0_md1_random, "MD", "Between_Class")
 
-ggplot(plot_data, aes(x = group, y = distance, fill = interaction(type, dataset))) +
+ggplot(plot_bhatt_data, aes(x = group, y = distance, fill = interaction(type, dataset))) +
   geom_boxplot(outlier.shape = NA) +
   scale_fill_manual(
     values = c(
@@ -943,15 +939,17 @@ ggplot(plot_data, aes(x = group, y = distance, fill = interaction(type, dataset)
     name = "Distance type"
   ) +
   labs(
-    title = "Bhattacharyya distances distribution on Feature Space data",
+    title = "Bhattacharyya distances distribution on HSI raw data",
     x = "Group (Dataset and distance type)",
     y = "Bhattacharyya distance"
   ) +
   theme(
     legend.position = "top",
     axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
-  )
-  
+  )+
+  theme_minimal()
+
+
 #Mahalanobis####################################################################
 # Initialisation
 plot_maha_data <- data.frame(
@@ -977,21 +975,191 @@ ggplot(plot_maha_data, aes(x = group, y = distance, fill = interaction(type, dat
     values = c(
       "Within_Class.MD" = "#1f77b4",
       "Between_Class.MD" = "#ff7f0e",
-      "Between_Class.CR" = "#fdae61", 
+      "Between_Class.CR" = "#fdae61",
       "Within_Class.CR" = "#98c1d9"),
     name = "Distance type"
   ) +
   labs(
-    title = "Mahalanobis distances distribution on Feature Space data",
+    title = "Mahalanobis distances distribution on HSI raw data",
     x = "Group (Dataset and distance type)",
     y = "Mahalanobis distance"
   ) +
   theme(
     legend.position = "top",
     axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
-  )
+  )+
+  theme_minimal()
 
 # LDA ##########################################################################
 # Crowns
+p4 <- ggplot() +
+  geom_jitter(
+    data = predicted_liana_per_crown_cv,
+    aes(x = LianaOriginal, y = prediction, shape = factor(fold), fill = factor(fold)),
+    width = 0.15,
+    alpha = 0.5,
+    size = 2.5,
+    color = "black",
+    stroke = 0.3
+  ) +
+  geom_boxplot(
+    data = predicted_liana_per_crown_cv,
+    aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+    fill = NA,
+    linewidth = 0.8,
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = c("0" = "#FFEE99", "1" = "#FFCC65", "2" = "#FF9932", "3" = "#FF6619")) +
+  scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5" = "grey")) +
+  scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
+  scale_x_discrete(labels = c("0" = "CR0", "1" = "CR1", "2" = "CR2", "3" = "CR3")) +
+  labs(
+    x = "Liana class in crowns dataset (CR)",
+    y = "Liana predicted per crown (%)",
+    title = "a. Mean liana prediction on HSI raw data (CR)",
+    caption = paste0(
+      "Mean accuracy  = ", round(mean_poly_accuracy, 3), " | ",
+      "Mean F1-score  = ", round(mean_poly_f1, 3)
+    ),
+    shape = "Fold", fill = "Fold"
+  ) +
+  theme(legend.position = "right") +
+  theme_minimal()
+
+p4
+
+p4_fold_plots <- lapply(1:5, function(current_fold) {
+  fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
+  fold_accuracy_pixel <- mean(fold_data$prediction / 100, na.rm = TRUE)  
+  fold_accuracy_poly <- cv_poly_accuracies[current_fold]  
+  fold_f1_poly <- cv_poly_f1[current_fold]
   
+  ggplot() +
+    geom_boxplot(
+      data = fold_data,
+      aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+      fill = NA,
+      linewidth = 0.8,
+      show.legend = FALSE
+    ) +
+    geom_jitter(
+      data = fold_data,
+      aes(x = LianaOriginal, y = prediction, fill = factor(fold), shape = factor(fold)),
+      width = 0.15,
+      alpha = 0.7,
+      size = 2.5,
+      color = "black",
+      stroke = 0.3
+    ) +
+    scale_color_manual(values = c("0" = "#FFEE99", "1" = "#FFCC65", "2" = "#FF9932", "3" = "#FF6619")) +
+    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00"), name ="Fold") +
+    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25), name="Fold") +
+    scale_x_discrete(labels = c("0" = "CR0", "1" = "CR1", "2" = "CR2", "3" = "CR3")) +
+    labs(
+      x = "Liana class in crowns dataset (CR)",
+      y = "Liana predicted per crown (%)",
+      title = paste("Testing on fold", current_fold),
+      caption = paste0(
+        "Fold mean accuracy = ", round(fold_accuracy_poly, 3), " | ",
+        "Fold F1-score = ", round(fold_f1_poly, 3)
+      )
+    ) +
+    theme(legend.position = "none") +
+    theme_minimal()
+})
+
+grid.arrange(
+  grobs = c(p4_fold_plots, p4),
+  ncol = 2,
+  top = textGrob("Liana prediction by crown and by fold (NIR filter)",
+                 gp = gpar(fontsize = 12, fontface = "bold"))
+)
+
 # Blob
+p4_blob <- ggplot() +
+  geom_jitter(
+    data = predicted_liana_per_crown_cv,
+    aes(x = LianaOriginal, y = prediction, shape = factor(fold), fill = factor(fold)),
+    width = 0.15,
+    alpha = 0.5,
+    size = 2.5,
+    color = "black",
+    stroke = 0.3
+  ) +
+  geom_boxplot(
+    data = predicted_liana_per_crown_cv,
+    aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+    fill = NA,
+    linewidth = 0.8,
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +
+  scale_fill_manual(values = c("1" = "grey", "2" = "grey", "3" = "grey", "4" = "grey", "5"="grey")) +
+  scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
+  scale_x_discrete(labels = c("0" = "MD0", "1" = "MD1")) +
+  
+  labs(
+    x = "Liana class in manual delineation (MD)",
+    y = "Liana predicted per patch (%)",
+    title = "b. Mean liana prediction on HSI raw data (MD)",
+    caption = paste0("Overall mean accuracy = ", round(mean_accuracy_pixel * 100, 1), "% | ",
+                     "Mean F1-score = ", round(mean(cv_f1_macro, na.rm = TRUE), 3)),
+    shape = "Fold", 
+    fill = "Fold"    
+  )+
+  theme(legend.position = "right") +
+  theme_minimal()
+
+p4_blob
+
+accuracy_by_fold <- aggregate(
+  correct ~ fold,
+  data = subset(all_cv_results, LianaOriginal %in% c("0", "1")),
+  FUN = mean
+)
+
+p4_fold_plots_blob <- lapply(1:5, function(current_fold) {
+  fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
+  fold_accuracy <- accuracy_by_fold$correct[accuracy_by_fold$fold == current_fold]
+  fold_f1 <- cv_f1_macro[current_fold] 
+  
+  ggplot() +
+    geom_boxplot(
+      data = fold_data,
+      aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+      fill = NA,
+      linewidth = 0.8,
+      show.legend = FALSE
+    ) +
+    geom_jitter(
+      data = fold_data,
+      aes(x = LianaOriginal, y = prediction, fill = factor(fold), shape = factor(fold)),
+      width = 0.15,
+      alpha = 0.7,
+      size = 2.5,
+      color = "black", 
+      stroke = 0.3
+    ) +
+    scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +  
+    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +  
+    scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +  
+    scale_x_discrete(labels = c("0" = "MD0", "1" = "MD1")) +
+    labs(
+      x = "Liana class in manual delineation (MD)",
+      y = "Liana predicted per patch (%)",
+      title = paste("Testing on fold", current_fold),
+      caption = paste0("Fold mean accuracy = ", round(fold_accuracy * 100, 1), "% | ",
+                       "Fold F1-score = ", round(fold_f1, 3))
+    ) +
+    theme(legend.position = "none")+
+    theme_minimal()
+})
+
+grid.arrange(
+  grobs = c(p4_fold_plots_blob, p4_blob),
+  ncol = 2,
+  top = textGrob("Liana prediction by patch and by fold (NIR filter)",
+                 gp = gpar(fontsize = 12, fontface = "bold"))
+)
+
+grid.arrange(p4, p4_blob, ncol = 2)
