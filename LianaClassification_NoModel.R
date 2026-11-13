@@ -141,9 +141,9 @@ perc95_illu <- global(illu[[1]], fun = quantile, probs = 0.95, na.rm = TRUE)$X90
 # Comment and/or uncomment to choose the right filter
 
 ### Illu (median) #################
-illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
-illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
-
+# illu_crowns_out <- filter_by_illu(illu, area_crowns, label_crowns, med_illu)
+# illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
+# 
 # area_crowns_filt <- illu_crowns_out$area_filt
 # label_crowns_filt <- illu_crowns_out$label_filt
 # area_blob_filt <- illu_blob_out$area_filt
@@ -152,8 +152,8 @@ illu_blob_out <- filter_by_illu(illu, area_blob, label_blob, med_illu)
 # illu_crop_blob <- illu_blob_out$area_crop
 
 ### VNIR (mean) ####################
-VNIR_crowns_out <- filter_by_vnir(area_crowns, label_crowns)
-VNIR_blob_out <- filter_by_vnir(area_blob, label_blob)
+# VNIR_crowns_out <- filter_by_vnir(area_crowns, label_crowns)
+# VNIR_blob_out <- filter_by_vnir(area_blob, label_blob)
 
 # area_crowns_filt <- VNIR_crowns_out$area_filt
 # label_crowns_filt <- VNIR_crowns_out$label_filt
@@ -354,53 +354,53 @@ pca_plot_blob_poly <- data.frame(
 
 ## t-SNE #######################################################################
 
-## DP per pixel
-perplexity_crown = (nrow(crowns_filt_valid)-1)/3
-perplexity_crown
-set.seed(2)
-tsne_out_crowns <- Rtsne(crowns_filt_valid, check_duplicates = FALSE, perplexity = perplexity_crown )
-
-tsne_plot_crowns <- data.frame(
-  x = tsne_out_crowns$Y[,1],
-  y = tsne_out_crowns$Y[,2],
-  LianaFullCrown = as.factor(label_crowns_valid)
-)
-
-
-## For DP per polygon 
-perplexity_crown_poly = (nrow(crowns_poly_valid)-1)/3 - 1
-# perplexity_crown_poly
-set.seed(2)
-tsne_out_crowns_poly <- Rtsne(crowns_poly_valid, perplexity = perplexity_crown_poly, check_duplicates = FALSE)
-tsne_plot_crowns_poly <- data.frame(
-  x = tsne_out_crowns_poly$Y[,1],
-  y = tsne_out_crowns_poly$Y[,2],
-  LianaFullCrown = as.factor(label_crowns_poly_valid)
-)
-
-## For MD per pixel
-# perplexity_blob = (nrow(blob_filt_valid)-1)/3 - 1
-# perplexity_blob
-set.seed(2)
-tsne_out_blob <- Rtsne( blob_filt_valid, check_duplicates = FALSE)
-
-tsne_plot_blob <- data.frame(
-  x = tsne_out_blob$Y[,1],
-  y = tsne_out_blob$Y[,2],
-  Type = as.factor(label_blob_valid)
-)
-
-## For MD per polygon 
-perplexity_blob_poly = (nrow(blob_poly_valid)-1)/3 - 1
-# perplexity_blob_poly
-set.seed(2)
-tsne_out_blob_poly <- Rtsne(blob_poly_valid, perplexity = perplexity_blob_poly , check_duplicates = FALSE)
-
-tsne_plot_blob_poly <- data.frame(
-  x = tsne_out_blob_poly$Y[,1],
-  y = tsne_out_blob_poly$Y[,2],
-  Type = as.factor(label_blob_poly_valid)
-)
+# ## DP per pixel
+# perplexity_crown = (nrow(crowns_filt_valid)-1)/3
+# perplexity_crown
+# set.seed(2)
+# tsne_out_crowns <- Rtsne(crowns_filt_valid, check_duplicates = FALSE, perplexity = perplexity_crown )
+# 
+# tsne_plot_crowns <- data.frame(
+#   x = tsne_out_crowns$Y[,1],
+#   y = tsne_out_crowns$Y[,2],
+#   LianaFullCrown = as.factor(label_crowns_valid)
+# )
+# 
+# 
+# ## For DP per polygon 
+# perplexity_crown_poly = (nrow(crowns_poly_valid)-1)/3 - 1
+# # perplexity_crown_poly
+# set.seed(2)
+# tsne_out_crowns_poly <- Rtsne(crowns_poly_valid, perplexity = perplexity_crown_poly, check_duplicates = FALSE)
+# tsne_plot_crowns_poly <- data.frame(
+#   x = tsne_out_crowns_poly$Y[,1],
+#   y = tsne_out_crowns_poly$Y[,2],
+#   LianaFullCrown = as.factor(label_crowns_poly_valid)
+# )
+# 
+# ## For MD per pixel
+# # perplexity_blob = (nrow(blob_filt_valid)-1)/3 - 1
+# # perplexity_blob
+# set.seed(2)
+# tsne_out_blob <- Rtsne( blob_filt_valid, check_duplicates = FALSE)
+# 
+# tsne_plot_blob <- data.frame(
+#   x = tsne_out_blob$Y[,1],
+#   y = tsne_out_blob$Y[,2],
+#   Type = as.factor(label_blob_valid)
+# )
+# 
+# ## For MD per polygon 
+# perplexity_blob_poly = (nrow(blob_poly_valid)-1)/3 - 1
+# # perplexity_blob_poly
+# set.seed(2)
+# tsne_out_blob_poly <- Rtsne(blob_poly_valid, perplexity = perplexity_blob_poly , check_duplicates = FALSE)
+# 
+# tsne_plot_blob_poly <- data.frame(
+#   x = tsne_out_blob_poly$Y[,1],
+#   y = tsne_out_blob_poly$Y[,2],
+#   Type = as.factor(label_blob_poly_valid)
+# )
 
 ## UMAP #########################################################################
 
@@ -1114,8 +1114,9 @@ for (i in 1:length(folds_crowns)) {
   predicted_liana_per_crown_cv_fold <- aggregate(
     pred_class ~ poly_id + LianaOriginal + fold,
     data = temp_df,
-    FUN = function(x) mean(as.numeric(x))
+    FUN = function(x) mean(as.numeric(as.character(x)))
   )
+  
   names(predicted_liana_per_crown_cv_fold) <- c("poly_id", "LianaOriginal", "fold", "prediction")
   predicted_liana_per_crown_cv_fold$prediction <- predicted_liana_per_crown_cv_fold$prediction * 100
   

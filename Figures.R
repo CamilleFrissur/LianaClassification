@@ -96,7 +96,7 @@ pca_plot_crowns_half <- pca_plot_crowns %>%
 pca_plot_crowns_half <- pca_plot_crowns_half %>%
   sample_frac(0.5)
 
-ggplot(pca_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
+pca_cr_pix <- ggplot(pca_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   # scale_color_manual(values = c("0"= "#FFEE99", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
   scale_color_manual(values = c("0"= "#FFCC65", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
@@ -104,22 +104,22 @@ ggplot(pca_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
                      
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   labs(title= "
-       PCA on CR feature space data per pixel (NIR filter)",
+       a. PCA on CR feautre space data per pixel (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns[2], 1), "%)"))+
   theme_minimal()
 
-# # Only useful if the illumination filter was used
+# Only useful if the illumination filter was used
 # pca_plot_crowns$illu <- illu_crowns_valid
 # ggplot(pca_plot_crowns, aes(x = x, y = y, color = illu)) +
 #   geom_point() +
 #   scale_color_viridis_c(name = "Illumination") +
-#   labs(title = "pca of the HSI values of the DP dataset colored by illumination")
+#   labs(title = "PCA of the HSI values of the CR dataset colored by illumination")
 
-ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
+pca_cr_poly <- ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("CR0"= "#FFEE99", "CR1"="#FFCC65","CR2"="#FF9932","CR3"= "#FF6619"))+
-  labs(title= "PCA on CR feature space data per crown (NIR filter)",
+  labs(title= "a. PCA on CR feature space data per crown (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_crowns_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_crowns_poly[2], 1), "%)"))+
   theme_minimal()
@@ -128,72 +128,74 @@ ggplot(pca_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
 pca_plot_blob_half <- pca_plot_blob %>%
   sample_frac(0.33)
 
-ggplot(pca_plot_blob_half, aes(x = x, y = y, color = Type)) +
+pca_blob_pix <- ggplot(pca_plot_blob_half, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
     values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA on MD feature space data per pixel (NIR filter)",
+  labs(title= "b. PCA on MD feature space data per pixel (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob[2], 1), "%)"))+
-  theme_minimal()+ ylim (-15,15)
+  theme_minimal()
 
 # # Only with illu filter
-# umap_plot_blob$illu <- illu_blob_valid
-# ggplot(umap_plot_blob, aes(x = x, y = y, color = illu)) +
+# pca_plot_blob$illu <- illu_blob_valid
+# ggplot(pca_plot_blob, aes(x = x, y = y, color = illu)) +
 #   geom_point() +
 #   scale_color_viridis_c(name = "Illumination") +
-#   labs(title = "umap of the HSI values of the MD dataset colored by illumination")
+#   labs(title = "PCA of the HSI values of the MD dataset colored by illumination")
 
-ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
+pca_blob_poly <- ggplot(pca_plot_blob_poly, aes(x = x, y = y, color = Type)) +
   geom_point() +
   scale_color_manual(
     name = "Presence of liana",
     values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "PCA on MD feature space data per patch (NIR filter)",
+  labs(title= "b. PCA on MD feature space data per patch (NIR filter)",
        x = paste0("Dim 1 (", round(var_exp_blob_poly[1], 1), "%)"),
        y = paste0("Dim 2 (", round(var_exp_blob_poly[2], 1), "%)"))+
-  theme_minimal() + ylim (-5,10)
+  theme_minimal()
 
+grid.arrange(pca_cr_pix,pca_blob_pix, ncol = 2)
+grid.arrange(pca_cr_poly,pca_blob_poly, ncol = 2)
 # tSNE ################################################################
 
-## CROWNS
-
-ggplot(tsne_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
-  geom_point()+
-  scale_color_manual(values = c("0"= "#FFEE99", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
-                     labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
-  labs(title= "tSNE of the HSI values of the drone photos dataset (Illu filter)" )+
-  theme_minimal()
-
-# Only useful if the illumination filter was used
-# tsne_plot_crowns$illu <- illu_crowns_valid
-# ggplot(tsne_plot_crowns, aes(x = x, y = y, color = illu)) +
-#   geom_point() +
-#   scale_color_viridis_c(name = "Illumination") +
-#   labs(title = "tSNE of the HSI values of the DP dataset colored by illumination")
-
-ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
-  geom_point()+ #(size = 3)
-  scale_color_manual(values = c("CR0"= "#FFEE99", "CR1"="#FFCC65","CR2"="#FF9932","CR3"= "#FF6619"))+
-  # scale_color_viridis_d(option="turbo")+
-  labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (Illu filter)" )+
-  theme_minimal()
-
-## BLOB
-ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
-  geom_point()+
-  scale_color_manual(
-    name = "Presence of liana",
-    values = c("0" = "#99EDFF", "1" = "#1965FF"),
-    labels = c("0" = "No liana", "1" = "Liana")
-  )+
-  labs(title= "tSNE of the HSI values of the MD dataset (Illu filter)" )+
-  theme_minimal()
+# ## CROWNS
+# 
+# ggplot(tsne_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
+#   geom_point()+
+#   scale_color_manual(values = c("0"= "#FFEE99", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
+#                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
+#   labs(title= "tSNE of the HSI values of the drone photos dataset (Illu filter)" )+
+#   theme_minimal()
+# 
+# # Only useful if the illumination filter was used
+# # tsne_plot_crowns$illu <- illu_crowns_valid
+# # ggplot(tsne_plot_crowns, aes(x = x, y = y, color = illu)) +
+# #   geom_point() +
+# #   scale_color_viridis_c(name = "Illumination") +
+# #   labs(title = "tSNE of the HSI values of the DP dataset colored by illumination")
+# 
+# ggplot(tsne_plot_crowns_poly,aes(x = x, y = y, color = LianaFullCrown)) +
+#   geom_point()+ #(size = 3)
+#   scale_color_manual(values = c("CR0"= "#FFEE99", "CR1"="#FFCC65","CR2"="#FF9932","CR3"= "#FF6619"))+
+#   # scale_color_viridis_d(option="turbo")+
+#   labs(title= "tSNE of the mean spectrum per polygon of the DP dataset (Illu filter)" )+
+#   theme_minimal()
+# 
+# ## BLOB
+# ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
+#   geom_point()+
+#   scale_color_manual(
+#     name = "Presence of liana",
+#     values = c("0" = "#99EDFF", "1" = "#1965FF"),
+#     labels = c("0" = "No liana", "1" = "Liana")
+#   )+
+#   labs(title= "tSNE of the HSI values of the MD dataset (Illu filter)" )+
+#   theme_minimal()
 
 # Only with illu filter
 # tsne_plot_blob$illu <- illu_blob_valid
@@ -202,15 +204,15 @@ ggplot(tsne_plot_blob, aes(x = x, y = y, color = Type)) +
 #   scale_color_viridis_c(name = "Illumination") +
 #   labs(title = "tSNE of the HSI values of the MD dataset colored by illumination")
 
-ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
-  geom_point() + #(size = 3)
-  scale_color_manual(
-    name = "Presence of liana",
-    values = c("0" = "#99EDFF", "1" = "#1965FF"),
-    labels = c("0" = "No liana", "1" = "Liana")
-  )+
-  labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (Illu filter)" )+
-  theme_minimal()
+# ggplot(tsne_plot_blob_poly, aes(x = x, y = y, color = Type)) +
+#   geom_point() + #(size = 3)
+#   scale_color_manual(
+#     name = "Presence of liana",
+#     values = c("0" = "#99EDFF", "1" = "#1965FF"),
+#     labels = c("0" = "No liana", "1" = "Liana")
+#   )+
+#   labs(title= "tSNE of the mean spectrum per polygon of the MD dataset (Illu filter)" )+
+#   theme_minimal()
 
 ## UMAP #########################################################################
 
@@ -221,12 +223,12 @@ umap_plot_crowns_half <- umap_plot_crowns %>%
 umap_plot_crowns_half <- umap_plot_crowns_half %>%
   sample_frac(0.5)
 
-ggplot(umap_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
+u_cr_pix <- ggplot(umap_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("0"= "#FFCC65", "1"="#FFCC65","2"="#FF9932","3"= "#FF6619"),
                      labels = c("0" = "CR0", "1" = "CR1", "2"= "CR2", "3"= "CR3"))+
   # scale_color_viridis_d(option="turbo")+
-  labs(title= "UMAP on CR feature space data per pixel (NIR filter)" )+
+  labs(title= "a. UMAP on CR feature space data per pixel (NIR filter)" )+
   theme_minimal()
 
 # Only with illu filter
@@ -234,12 +236,12 @@ ggplot(umap_plot_crowns_half, aes(x = x, y = y, color = LianaFullCrown)) +
 # ggplot(umap_plot_crowns, aes(x = x, y = y, color = illu)) +
 # geom_point() +
 # scale_color_viridis_c(name = "Illumination") +
-# labs(title = "UMAP of the HSI values of the DP dataset colored by illumination")
+# labs(title = "UMAP of the HSI values of the CR dataset colored by illumination")
 
-ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
+u_cr_poly <- ggplot(umap_plot_crowns_poly, aes(x = x, y = y, color = LianaFullCrown)) +
   geom_point()+
   scale_color_manual(values = c("CR0"= "#FFEE99", "CR1"="#FFCC65","CR2"="#FF9932","CR3"= "#FF6619"))+
-  labs(title= "UMAP on CR feature space data per crown (NIR filter)" )+
+  labs(title= "a. UMAP on CR feature space data per crown (NIR filter)" )+
   theme_minimal()
 
 ## BLOB
@@ -247,14 +249,14 @@ umap_plot_blob_half <- umap_plot_blob %>%
   sample_frac(0.33)
 
 
-ggplot(umap_plot_blob_half, aes(x = x, y = y, color = Type)) +
+u_blob_pix <- ggplot(umap_plot_blob_half, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
     values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP on MD feature space data per pixel (NIR filter)" )+
+  labs(title= "b. UMAP on MD feature space data per pixel (NIR filter)" )+
   theme_minimal()
 
 # Only with illu filter
@@ -264,16 +266,18 @@ ggplot(umap_plot_blob_half, aes(x = x, y = y, color = Type)) +
 #   scale_color_viridis_c(name = "Illumination") +
 #   labs(title = "UMAP of the HSI values of the MD dataset colored by illumination")
 
-ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
+u_blob_poly <- ggplot(umap_plot_poly, aes(x = x, y = y, color = Type)) +
   geom_point()+
   scale_color_manual(
     name = "Presence of liana",
     values = c("0" = "#99EDFF", "1" = "#1965FF"),
     labels = c("0" = "No liana", "1" = "Liana")
   )+
-  labs(title= "UMAP on MD feature space data per patch (NIR filter)" )+
+  labs(title= "b. UMAP on MD feature data per patch (NIR filter)" )+
   theme_minimal()
 
+grid.arrange(u_cr_pix,u_blob_pix, ncol = 2)
+grid.arrange(u_cr_poly,u_blob_poly, ncol = 2)
 # Mean spectrum ################################################################
 label_config <- data.frame(
   group = c("DP_CR0", "DP_CR1", "DP_CR2", "DP_CR3", "MD_0", "MD_1"),
@@ -1136,8 +1140,8 @@ p4_blob <- ggplot() +
     x = "Liana class in manual delineation (MD)",
     y = "Liana predicted per patch (%)",
     title = "b. Mean liana prediction on HSI raw data (MD)",
-    caption = paste0("Mean accuracy (patch) = ", round(mean_accuracy_poly), " | ",
-                     "Mean F1-score (patch) = ", round(f1_macro_poly, 3)),
+    caption = paste0("Mean accuracy (patch) = ", round(mean_accuracy_poly * 100, 1), "% | ",
+                    "Mean F1-score (patch) = ", round(f1_macro_poly, 3)),
     shape = "Fold", 
     fill = "Fold"    
   )+
@@ -1152,39 +1156,86 @@ accuracy_by_fold <- aggregate(
   FUN = mean
 )
 
+# p4_fold_plots_blob <- lapply(1:5, function(current_fold) {
+#   fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
+#   fold_accuracy_poly <- accuracy_poly_by_fold$correct_majority[
+#     accuracy_poly_by_fold$fold == current_fold]
+#   fold_f1_poly <- f1_poly_by_fold[current_fold]
+#   
+#   ggplot() +
+#     geom_boxplot(
+#       data = fold_data,
+#       aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
+#       fill = NA,
+#       linewidth = 0.8,
+#       show.legend = FALSE
+#     ) +
+#     geom_jitter(
+#       data = fold_data,
+#       aes(x = LianaOriginal, y = prediction, fill = factor(fold), shape = factor(fold)),
+#       width = 0.15,
+#       alpha = 0.7,
+#       size = 2.5,
+#       color = "black",
+#       stroke = 0.3
+#     ) +
+#     scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +
+#     scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +
+#     scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
+#     scale_x_discrete(labels = c("0" = "MD0", "1" = "MD1")) +
+#     labs(
+#       x = "Liana class in manual delineation (MD)",
+#       y = "Liana predicted per patch (%)",
+#       title = paste("Testing on fold", current_fold),
+#       caption = paste0("Fold accuracy (patch) = ", round(fold_accuracy_poly), "|",
+#                        "Fold F1-score (patch) = ", round(fold_f1_poly, 3))
+#     ) +
+#     theme(legend.position = "none") +
+#     theme_minimal()
+# })
+
 p4_fold_plots_blob <- lapply(1:5, function(current_fold) {
   fold_data <- subset(predicted_liana_per_crown_cv, fold == current_fold)
-  fold_accuracy_poly <- accuracy_poly_by_fold$correct_majority[
-    accuracy_poly_by_fold$fold == current_fold]
-  fold_f1_poly <- f1_poly_by_fold[current_fold]
+  sub_f     <- subset(majority_per_poly, fold == current_fold)
+  
+  fold_accuracy_poly <- mean(as.character(sub_f$majority_pred) ==
+                               as.character(sub_f$LianaOriginal))
+  
+  cm_f <- table(pred  = as.character(sub_f$majority_pred),
+                truth = as.character(sub_f$LianaOriginal))
+  classes_f <- sort(union(rownames(cm_f), colnames(cm_f)))
+  f1s <- sapply(classes_f, function(cls) {
+    tp <- if (cls %in% rownames(cm_f) && cls %in% colnames(cm_f)) cm_f[cls, cls] else 0
+    fp <- if (cls %in% rownames(cm_f)) sum(cm_f[cls, ]) - tp else 0
+    fn <- if (cls %in% colnames(cm_f)) sum(cm_f[, cls]) - tp else 0
+    p <- if (tp + fp > 0) tp / (tp + fp) else 0
+    r <- if (tp + fn > 0) tp / (tp + fn) else 0
+    if (p + r > 0) 2 * p * r / (p + r) else 0
+  })
+  fold_f1_poly <- mean(f1s)
   
   ggplot() +
     geom_boxplot(
       data = fold_data,
       aes(x = LianaOriginal, y = prediction, color = LianaOriginal),
-      fill = NA,
-      linewidth = 0.8,
-      show.legend = FALSE
+      fill = NA, linewidth = 0.8, show.legend = FALSE
     ) +
     geom_jitter(
       data = fold_data,
       aes(x = LianaOriginal, y = prediction, fill = factor(fold), shape = factor(fold)),
-      width = 0.15,
-      alpha = 0.7,
-      size = 2.5,
-      color = "black",
-      stroke = 0.3
+      width = 0.15, alpha = 0.7, size = 2.5, color = "black", stroke = 0.3
     ) +
     scale_color_manual(values = c("0" = "#99EDFF", "1" = "#1965FF")) +
-    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24", "4" = "#6DB6FF", "5" = "#DB6D00")) +
+    scale_fill_manual(values = c("1" = "#B66DFF", "2" = "#FF6DB6", "3" = "#24FF24",
+                                 "4" = "#6DB6FF", "5" = "#DB6D00")) +
     scale_shape_manual(values = c("1" = 21, "2" = 22, "3" = 23, "4" = 24, "5" = 25)) +
     scale_x_discrete(labels = c("0" = "MD0", "1" = "MD1")) +
     labs(
       x = "Liana class in manual delineation (MD)",
       y = "Liana predicted per patch (%)",
       title = paste("Testing on fold", current_fold),
-      caption = paste0("Fold accuracy (atch) = ", round(fold_accuracy_poly) "| ",
-                       "Fold F1-score (atch) = ", round(fold_f1_poly, 3))
+      caption = paste0("Fold accuracy (poly) = ", round(fold_accuracy_poly * 100, 1), "% | ",
+                       "Fold F1-score (poly) = ", round(fold_f1_poly, 3))
     ) +
     theme(legend.position = "none") +
     theme_minimal()

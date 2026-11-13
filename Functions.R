@@ -792,17 +792,17 @@ maha_global_comparisons <- function(df, label_col, class1, class2,
   w2s <- summarize_dists(w2)
   bts <- summarize_dists(bt)
   
-  sep_z <- NA_real_
-  if (!is.null(w1s) && !is.null(w2s) && !is.null(bts)) {
-    pooled_sd <- sqrt((w1s$sd_dist^2 + w2s$sd_dist^2) / 2)
-    if (pooled_sd > 0)
-      sep_z <- (bts$mean_dist - mean(c(w1s$mean_dist, w2s$mean_dist))) / pooled_sd
+  # sep_z <- NA_real_
+  # if (!is.null(w1s) && !is.null(w2s) && !is.null(bts)) {
+  #   pooled_sd <- sqrt((w1s$sd_dist^2 + w2s$sd_dist^2) / 2)
+  #   if (pooled_sd > 0)
+  #     sep_z <- (bts$mean_dist - mean(c(w1s$mean_dist, w2s$mean_dist))) / pooled_sd
   }
   
   list(within_class1 = w1s,
        within_class2 = w2s,
        between       = bts,
-       sep_z         = sep_z,
+       # sep_z         = sep_z,
        n_pcs         = space$n_pcs,
        seed          = seed)
 }
@@ -812,7 +812,8 @@ maha_results_to_df <- function(res, dataset, comparison) {
     return(data.frame(dataset = dataset, comparison = comparison,
                       mean_dist = NA, sd_dist = NA,
                       within1 = NA, within2 = NA,
-                      sep_z = NA, n_pcs = res$n_pcs))
+                      # sep_z = NA, n_pcs = res$n_pcs
+                      ))
   }
   data.frame(
     dataset    = dataset,

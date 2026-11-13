@@ -37,8 +37,8 @@ setwd ("D:/DataCamille/")
 source("Classification_R/LianaClassification/Functions.R")
 
 # Uploading data and cropping ##########################################
-area_blob <- rast("Classification_R/LianaClassification/FeatureSpaceData/blob_feat.tiff")
-area_crowns <- rast("Classification_R/LianaClassification/FeatureSpaceData/crowns_feat.tiff")
+area_blob <- rast("Classification_R/LianaClassification/FeatureSpaceData/blob_feat_18000.tiff")
+area_crowns <- rast("Classification_R/LianaClassification/FeatureSpaceData/crowns_feat_18000.tiff")
 
 
 blob <- vect("Lianes/LianaOrNotLiana_55_45.shp")
@@ -156,41 +156,41 @@ pca_plot_blob_poly <- data.frame(
 )
 
 ## t-SNE #######################################################################
-
-## DP per pixel
-perplexity_crown = (nrow(crowns_valid)-1)/3
-perplexity_crown
-set.seed(2)
-tsne_out_crowns <- Rtsne(crowns_valid, check_duplicates = FALSE, perplexity = perplexity_crown )
-
-tsne_plot_crowns <- data.frame(
-  x = tsne_out_crowns$Y[,1],
-  y = tsne_out_crowns$Y[,2],
-  LianaFullCrown = as.factor(label_crowns_valid)
-)
-
-## For DP per polygon 
-perplexity_crown_poly = (nrow(crowns_poly_valid)-1)/3 - 1
-# perplexity_crown_poly
-set.seed(2)
-tsne_out_crowns_poly <- Rtsne(crowns_poly_valid, perplexity = perplexity_crown_poly, check_duplicates = FALSE)
-tsne_plot_crowns_poly <- data.frame(
-  x = tsne_out_crowns_poly$Y[,1],
-  y = tsne_out_crowns_poly$Y[,2],
-  LianaFullCrown = as.factor(label_crowns_poly_valid)
-)
-
-## For MD per polygon 
-perplexity_blob_poly = (nrow(blob_poly_valid)-1)/3 - 1
-# perplexity_blob_poly
-set.seed(2)
-tsne_out_blob_poly <- Rtsne(blob_poly_valid, perplexity = perplexity_blob_poly , check_duplicates = FALSE)
-
-tsne_plot_blob_poly <- data.frame(
-  x = tsne_out_blob_poly$Y[,1],
-  y = tsne_out_blob_poly$Y[,2],
-  Type = as.factor(label_blob_poly_valid)
-)
+# 
+# ## DP per pixel
+# perplexity_crown = (nrow(crowns_valid)-1)/3
+# perplexity_crown
+# set.seed(2)
+# tsne_out_crowns <- Rtsne(crowns_valid, check_duplicates = FALSE, perplexity = perplexity_crown )
+# 
+# tsne_plot_crowns <- data.frame(
+#   x = tsne_out_crowns$Y[,1],
+#   y = tsne_out_crowns$Y[,2],
+#   LianaFullCrown = as.factor(label_crowns_valid)
+# )
+# 
+# ## For DP per polygon 
+# perplexity_crown_poly = (nrow(crowns_poly_valid)-1)/3 - 1
+# # perplexity_crown_poly
+# set.seed(2)
+# tsne_out_crowns_poly <- Rtsne(crowns_poly_valid, perplexity = perplexity_crown_poly, check_duplicates = FALSE)
+# tsne_plot_crowns_poly <- data.frame(
+#   x = tsne_out_crowns_poly$Y[,1],
+#   y = tsne_out_crowns_poly$Y[,2],
+#   LianaFullCrown = as.factor(label_crowns_poly_valid)
+# )
+# 
+# ## For MD per polygon 
+# perplexity_blob_poly = (nrow(blob_poly_valid)-1)/3 - 1
+# # perplexity_blob_poly
+# set.seed(2)
+# tsne_out_blob_poly <- Rtsne(blob_poly_valid, perplexity = perplexity_blob_poly , check_duplicates = FALSE)
+# 
+# tsne_plot_blob_poly <- data.frame(
+#   x = tsne_out_blob_poly$Y[,1],
+#   y = tsne_out_blob_poly$Y[,2],
+#   Type = as.factor(label_blob_poly_valid)
+# )
 
 ## UMAP #########################################################################
 
@@ -249,9 +249,9 @@ poly_id_m <- as.matrix(poly_id_r)[, 1]
 poly_id_valid <- poly_id_m[DP_per_pixel$valid_idx]
 crowns_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
 
-bhatt_cr0_cr3_random <- bhatt_between_random(crowns_df_pure, "LianaOriginal", "0", "3", n_repeats = 100, epsilon = 1e-6 )
-bhatt_cr0_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "0", n_repeats = 100, epsilon = 1e-6 )
-bhatt_cr3_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "3", n_repeats = 100, epsilon = 1e-6 )
+# bhatt_cr0_cr3_random <- bhatt_between_random(crowns_df_pure, "LianaOriginal", "0", "3", n_repeats = 100, epsilon = 1e-6 )
+# bhatt_cr0_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "0", n_repeats = 100, epsilon = 1e-6 )
+# bhatt_cr3_within <- bhatt_within_random(crowns_df_pure, "poly_id", "LianaOriginal", "3", n_repeats = 100, epsilon = 1e-6 )
 
 # BLOB 
 blob_df <- as.data.frame(blob_valid)
@@ -269,9 +269,9 @@ poly_id_m <- as.matrix(poly_id_r)[, 1]
 poly_id_valid <- poly_id_m[MD_per_pixel$valid_idx]
 blob_df_pure$poly_id <- ifelse(is.na(poly_id_valid), 0, poly_id_valid)
 
-bhatt_md0_md1_random <- bhatt_between_random(blob_df_pure, "Liana", "0", "1", n_repeats = 100, epsilon = 1e-6 )
-bhatt_md0_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "0", n_repeats = 100, epsilon = 1e-6 )
-bhatt_md1_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "1", n_repeats = 100, epsilon = 1e-6 )
+# bhatt_md0_md1_random <- bhatt_between_random(blob_df_pure, "Liana", "0", "1", n_repeats = 100, epsilon = 1e-6 )
+# bhatt_md0_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "0", n_repeats = 100, epsilon = 1e-6 )
+# bhatt_md1_within <- bhatt_within_random(blob_df_pure, "poly_id", "Liana", "1", n_repeats = 100, epsilon = 1e-6 )
 
 # Mahalanobis distance ###################################################
 # maha_cr0_cr3_random <- maha_between_random(crowns_df_pure, "LianaOriginal", "0", "3", n_repeats = 500, epsilon = 1e-6)
@@ -811,8 +811,9 @@ for (i in 1:length(folds_crowns)) {
   predicted_liana_per_crown_cv_fold <- aggregate(
     pred_class ~ poly_id + LianaOriginal + fold,
     data = temp_df,
-    FUN = function(x) mean(as.numeric(x))
+    FUN = function(x) mean(as.numeric(as.character(x)))
   )
+  
   names(predicted_liana_per_crown_cv_fold) <- c("poly_id", "LianaOriginal", "fold", "prediction")
   predicted_liana_per_crown_cv_fold$prediction <- predicted_liana_per_crown_cv_fold$prediction * 100
   
@@ -1042,31 +1043,31 @@ f1_poly_by_fold <- sapply(1:5, function(f) {
   mean(f1_classes)
 })
 
-# majority_per_poly$majority_pred <- factor(majority_per_poly$majority_pred,
-#                                           levels = levels(all_cv_results$predicted))
-# majority_per_poly$correct_majority <- as.character(majority_per_poly$majority_pred) ==
-#   as.character(majority_per_poly$LianaOriginal)
-# 
-# mean_accuracy_poly <- mean(majority_per_poly$correct_majority)  
-# accuracy_poly_by_fold <- aggregate(correct_majority ~ fold,
-#                                    data = majority_per_poly, FUN = mean)
-# accuracy_poly_by_fold 
-# 
-# mean_accuracy_poly <- mean(majority_per_poly$correct_majority)  
-# 
-# cm_poly <- table(
-#   predicted = as.character(majority_per_poly$majority_pred),
-#   truth     = as.character(majority_per_poly$LianaOriginal)
-# )
-# f1_by_class_poly <- sapply(colnames(cm_poly), function(cls) {
-#   tp <- if (cls %in% rownames(cm_poly)) cm_poly[cls, cls] else 0
-#   fp <- if (cls %in% rownames(cm_poly)) sum(cm_poly[cls, ]) - tp else 0
-#   fn <- if (cls %in% colnames(cm_poly)) sum(cm_poly[, cls]) - tp else 0
-#   p <- if (tp + fp > 0) tp / (tp + fp) else 0
-#   r <- if (tp + fn > 0) tp / (tp + fn) else 0
-#   if (p + r > 0) 2 * p * r / (p + r) else 0
-# })
-# f1_macro_poly <- mean(f1_by_class_poly)  
-# 
-# mean_accuracy_poly    
-# f1_macro_poly       
+majority_per_poly$majority_pred <- factor(majority_per_poly$majority_pred,
+                                          levels = levels(all_cv_results$predicted))
+majority_per_poly$correct_majority <- as.character(majority_per_poly$majority_pred) ==
+  as.character(majority_per_poly$LianaOriginal)
+
+mean_accuracy_poly <- mean(majority_per_poly$correct_majority)
+accuracy_poly_by_fold <- aggregate(correct_majority ~ fold,
+                                   data = majority_per_poly, FUN = mean)
+accuracy_poly_by_fold
+
+mean_accuracy_poly <- mean(majority_per_poly$correct_majority)
+
+cm_poly <- table(
+  predicted = as.character(majority_per_poly$majority_pred),
+  truth     = as.character(majority_per_poly$LianaOriginal)
+)
+f1_by_class_poly <- sapply(colnames(cm_poly), function(cls) {
+  tp <- if (cls %in% rownames(cm_poly)) cm_poly[cls, cls] else 0
+  fp <- if (cls %in% rownames(cm_poly)) sum(cm_poly[cls, ]) - tp else 0
+  fn <- if (cls %in% colnames(cm_poly)) sum(cm_poly[, cls]) - tp else 0
+  p <- if (tp + fp > 0) tp / (tp + fp) else 0
+  r <- if (tp + fn > 0) tp / (tp + fn) else 0
+  if (p + r > 0) 2 * p * r / (p + r) else 0
+})
+f1_macro_poly <- mean(f1_by_class_poly)
+
+mean_accuracy_poly
+f1_macro_poly
